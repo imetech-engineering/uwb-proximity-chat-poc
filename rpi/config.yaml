@@ -1,0 +1,229 @@
+# Raspberry Pi Hub Configuration
+# UWB Proximity Chat System
+#
+# This YAML file contains all configurable parameters for the hub.
+# Edit values below to customize behavior.
+
+# =============================================================================
+# NETWORK CONFIGURATION
+# =============================================================================
+
+network:
+  # UDP listener for incoming distance data from ESP32 units
+  udp_listen_port: 9999
+  udp_bind_address: "0.0.0.0"  # Listen on all interfaces
+  
+  # WebSocket server for real-time UI updates
+  websocket_path: "/ws"
+  websocket_port: 8000  # Same as HTTP port (shared with FastAPI)
+  
+  # HTTP/REST API server
+  rest_port: 8000
+  rest_host: "0.0.0.0"  # Listen on all interfaces
+  
+  # CORS (Cross-Origin Resource Sharing) for web UI
+  cors_enabled: true
+  cors_origins:
+    - "http://localhost:8000"
+    - "http://127.0.0.1:8000"
+    # Add your Raspberry Pi's IP address:
+    # - "http://192.168.1.100:8000"
+  
+  # Access Point Mode (documentation only - not implemented in POC)
+  # Set to true if you want Pi to create its own Wi-Fi network
+  run_as_ap: false
+  ap_ssid: "UWB-Proximity-Chat"
+  ap_password: "proximity123"  # Min 8 characters
+  ap_channel: 6
+
+# =============================================================================
+# VOLUME SIMULATION MODEL
+# =============================================================================
+
+volume_model:
+  # Distance thresholds (meters)
+  near_distance_m: 1.5   # Distance considered "close" (max volume)
+  far_distance_m: 4.0    # Distance beyond which volume is minimum
+  
+  # Volume range (0.0 - 1.0)
+  min_volume: 0.0        # Volume when distance >= far_distance_m
+  max_volume: 1.0        # Volume when distance <= near_distance_m
+  
+  # Cutoff distance (meters)
+  cutoff_distance_m: 5.0 # No audio beyond this distance
+  
+  # Curve type for distance-to-volume mapping
+  # Options: "linear", "inverse_square", "logarithmic"
+  curve_type: "inverse_square"  # Mimics real sound propagation
+  
+  # Quality weighting
+  # If true, multiply volume by quality factor (lower quality = quieter)
+  apply_quality_weighting: true
+  quality_threshold: 0.5  # Ignore measurements below this quality
+
+# =============================================================================
+# USER INTERFACE
+# =============================================================================
+
+ui:
+  # WebSocket broadcast settings
+  broadcast_interval_ms: 500  # Update rate: 500ms = 2 Hz
+  
+  # Data refresh (how often to compute and send updates)
+  refresh_rate_hz: 2
+  
+  # Display settings
+  show_dev_tools: true    # Show developer info in UI
+  show_raw_data: false    # Show raw UDP packets in UI
+  max_history_points: 100 # Max data points to keep in memory per pair
+  
+  # Auto-reconnect WebSocket
+  ws_reconnect_delay_ms: 2000
+  ws_max_reconnect_attempts: 10
+
+# =============================================================================
+# DATA PERSISTENCE
+# =============================================================================
+
+persistence:
+  # CSV Export
+  csv_export_enabled: true
+  csv_export_path: "./data/ranging_data.csv"
+  csv_auto_save: false      # Auto-save to CSV periodically
+  csv_auto_save_interval_s: 300  # Auto-save every 5 minutes
+  
+  # CSV Rotation
+  csv_rotation_enabled: true
+  csv_max_size_mb: 10       # Rotate when file exceeds this size
+  csv_max_files: 5          # Keep this many backup files
+  
+  # Data retention
+  data_retention_seconds: 3600  # Keep data in memory for 1 hour
+  
+  # Logging
+  log_level: "INFO"         # Options: DEBUG, INFO, WARNING, ERROR
+  log_to_file: true
+  log_file_path: "./logs/hub.log"
+  log_rotation_mb: 5
+  log_rotation_count: 3
+
+# =============================================================================
+# SECURITY (Basic - POC level)
+# =============================================================================
+
+security:
+  # API Token (optional - not enforced in POC)
+  # If set, clients must include "Authorization: Bearer <token>" header
+  api_token: null  # Set to a string to enable (e.g., "your-secret-token-here")
+  
+  # Rate limiting (basic protection)
+  rate_limit_enabled: false
+  rate_limit_requests: 100  # Max requests per window
+  rate_limit_window_s: 60   # Time window in seconds
+  
+  # Allowed unit IDs (whitelist)
+  # If not empty, only accept data from these units
+  allowed_units: []  # Empty = accept all. Example: ["A", "B", "C"]
+
+# =============================================================================
+# SYSTEM BEHAVIOR
+# =============================================================================
+
+system:
+  # Stale data timeout
+  # Mark data as stale if no update received within this time
+  stale_timeout_s: 5
+  
+  # Startup delay
+  # Wait this long before starting WebSocket broadcasts (let units connect)
+  startup_delay_s: 2
+  
+  # Graceful shutdown timeout
+  shutdown_timeout_s: 5
+  
+  # Worker threads
+  udp_worker_threads: 1     # Number of UDP listener threads
+  ws_worker_threads: 1      # Number of WebSocket broadcast threads
+  
+  # Buffer sizes
+  udp_buffer_size: 1024     # UDP receive buffer size (bytes)
+  ws_queue_size: 100        # WebSocket message queue size
+
+# =============================================================================
+# ADVANCED SETTINGS
+# =============================================================================
+
+advanced:
+  # Packet validation
+  strict_json_validation: true  # Reject malformed JSON
+  require_all_fields: false     # Require all JSON fields (vs optional)
+  
+  # Duplicate detection
+  deduplicate_packets: true     # Ignore duplicate packets
+  dedup_window_ms: 1000         # Consider packets within this window
+  
+  # Statistics
+  enable_statistics: true       # Track system statistics
+  stats_window_s: 60            # Statistics calculation window
+  
+  # Debug
+  debug_mode: false             # Extra verbose logging
+  simulate_units: false         # Generate fake unit data for testing
+  simulation_unit_count: 3
+  simulation_update_rate_hz: 2
+
+# =============================================================================
+# PRESETS (Quick Configuration)
+# =============================================================================
+
+# Uncomment a preset to use it (overrides above settings)
+
+# # Preset: High Performance
+# preset:
+#   name: "high_performance"
+#   ui:
+#     broadcast_interval_ms: 100  # 10 Hz
+#     refresh_rate_hz: 10
+#   persistence:
+#     csv_export_enabled: false   # Reduce I/O
+
+# # Preset: Low Bandwidth
+# preset:
+#   name: "low_bandwidth"
+#   ui:
+#     broadcast_interval_ms: 2000  # 0.5 Hz
+#     refresh_rate_hz: 0.5
+#     max_history_points: 20
+
+# # Preset: Debug
+# preset:
+#   name: "debug"
+#   persistence:
+#     log_level: "DEBUG"
+#   ui:
+#     show_dev_tools: true
+#     show_raw_data: true
+#   advanced:
+#     debug_mode: true
+
+# =============================================================================
+# NOTES
+# =============================================================================
+
+# 1. After editing this file, restart the server:
+#    sudo systemctl restart uwb-hub
+#    OR (if running manually):
+#    Ctrl+C and re-run: uvicorn server:app --reload
+#
+# 2. Distance and volume settings affect the "proximity" calculation.
+#    Adjust near_distance_m and far_distance_m for your use case.
+#
+# 3. For production deployment:
+#    - Set api_token to enable authentication
+#    - Disable debug_mode and show_dev_tools
+#    - Configure CORS origins for your domain
+#    - Enable rate limiting
+#
+# 4. CSV files are stored relative to server.py location.
+#    Ensure ./data/ and ./logs/ directories exist.
+

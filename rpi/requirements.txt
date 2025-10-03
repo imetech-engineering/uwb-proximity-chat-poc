@@ -1,0 +1,113 @@
+# Python Dependencies for UWB Proximity Chat Hub
+# Raspberry Pi / Linux
+#
+# Install with:
+#   pip install -r requirements.txt
+#
+# Or in a virtual environment:
+#   python3 -m venv venv
+#   source venv/bin/activate
+#   pip install -r requirements.txt
+
+# =============================================================================
+# CORE WEB FRAMEWORK
+# =============================================================================
+
+# FastAPI - Modern, fast web framework
+fastapi==0.109.0
+
+# Uvicorn - ASGI server for FastAPI
+uvicorn[standard]==0.27.0
+
+# WebSockets - For real-time communication
+websockets==12.0
+
+# =============================================================================
+# CONFIGURATION & DATA
+# =============================================================================
+
+# PyYAML - YAML configuration file parsing
+pyyaml==6.0.1
+
+# Pydantic - Data validation and settings management
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# =============================================================================
+# ASYNC & NETWORKING
+# =============================================================================
+
+# AioFiles - Async file operations
+aiofiles==23.2.1
+
+# Python-multipart - For form data parsing (if needed)
+python-multipart==0.0.6
+
+# =============================================================================
+# DATA HANDLING
+# =============================================================================
+
+# Pandas - Data manipulation and CSV export (optional but useful)
+pandas==2.1.4
+
+# NumPy - Numerical operations
+numpy==1.26.3
+
+# =============================================================================
+# UTILITIES
+# =============================================================================
+
+# Python-dateutil - Date/time utilities
+python-dateutil==2.8.2
+
+# =============================================================================
+# DEVELOPMENT & DEBUGGING (optional - can remove for production)
+# =============================================================================
+
+# Pytest - Testing framework
+pytest==7.4.4
+pytest-asyncio==0.23.3
+
+# Black - Code formatter
+black==23.12.1
+
+# Ruff - Fast Python linter
+ruff==0.1.11
+
+# =============================================================================
+# OPTIONAL ENHANCEMENTS
+# =============================================================================
+
+# Rich - Beautiful terminal output (for logging)
+# rich==13.7.0
+
+# Prometheus-client - Metrics export (for monitoring)
+# prometheus-client==0.19.0
+
+# =============================================================================
+# SYSTEM REQUIREMENTS
+# =============================================================================
+
+# Python version: 3.8 or higher
+# Raspberry Pi OS: Bullseye or newer recommended
+#
+# For best performance on Raspberry Pi:
+#   - Use Raspberry Pi 4 (2GB+ RAM)
+#   - Enable performance governor:
+#     echo "performance" | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+#
+# =============================================================================
+# INSTALLATION NOTES
+# =============================================================================
+
+# On Raspberry Pi, you may need system packages:
+#   sudo apt-get update
+#   sudo apt-get install -y python3-pip python3-venv python3-dev
+#
+# If building NumPy/Pandas from source is slow, use:
+#   sudo apt-get install -y python3-numpy python3-pandas
+#   pip install -r requirements.txt --no-build-isolation
+#
+# Or use piwheels (pre-built wheels for Raspberry Pi):
+#   pip install -r requirements.txt --extra-index-url https://www.piwheels.org/simple
+

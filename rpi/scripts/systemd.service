@@ -1,0 +1,90 @@
+# uwb-hub.service - Systemd Service for UWB Proximity Chat Hub
+#
+# This service runs the FastAPI hub server as a system service,
+# starting automatically on boot and restarting on failure.
+#
+# INSTALLATION INSTRUCTIONS:
+# ==========================
+#
+# 1. Edit this file and replace placeholders:
+#    - /home/pi/proximity-chat/rpi → your actual project path
+#    - pi → your username
+#
+# 2. Copy this file to systemd directory:
+#    sudo cp rpi/scripts/systemd.service /etc/systemd/system/uwb-hub.service
+#
+# 3. Reload systemd:
+#    sudo systemctl daemon-reload
+#
+# 4. Enable service (start on boot):
+#    sudo systemctl enable uwb-hub.service
+#
+# 5. Start service now:
+#    sudo systemctl start uwb-hub.service
+#
+# 6. Check status:
+#    sudo systemctl status uwb-hub.service
+#
+# 7. View logs:
+#    sudo journalctl -u uwb-hub.service -f
+#
+# COMMANDS:
+# =========
+# Start:   sudo systemctl start uwb-hub
+# Stop:    sudo systemctl stop uwb-hub
+# Restart: sudo systemctl restart uwb-hub
+# Status:  sudo systemctl status uwb-hub
+# Logs:    sudo journalctl -u uwb-hub -f
+# Disable: sudo systemctl disable uwb-hub
+
+[Unit]
+Description=UWB Proximity Chat Hub Server
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# User and Group (change 'pi' to your username)
+User=pi
+Group=pi
+
+# Working directory (change to your project path)
+WorkingDirectory=/home/pi/proximity-chat/rpi
+
+# Environment variables
+Environment="PATH=/home/pi/proximity-chat/rpi/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+
+# Command to execute
+# Using virtual environment's uvicorn
+ExecStart=/home/pi/proximity-chat/rpi/venv/bin/uvicorn server:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --log-level info
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Security hardening (optional but recommended)
+# Uncomment these for better security:
+# NoNewPrivileges=true
+# PrivateTmp=true
+# ProtectSystem=strict
+# ProtectHome=true
+# ReadWritePaths=/home/pi/proximity-chat/rpi/data /home/pi/proximity-chat/rpi/logs
+
+# Standard output and error handling
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=uwb-hub
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
+

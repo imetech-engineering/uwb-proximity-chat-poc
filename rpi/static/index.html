@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UWB Proximity Chat - Live Monitor</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <h1>UWB Proximity Chat</h1>
+            <p class="subtitle">Real-time Distance Monitoring & Volume Simulation</p>
+            <div class="status-bar">
+                <span id="connection-status" class="status-badge disconnected">Disconnected</span>
+                <span id="node-count" class="status-badge">Nodes: 0</span>
+                <span id="update-rate" class="status-badge">Update: --</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Network Visualization -->
+        <section class="panel">
+            <h2>Network Graph</h2>
+            <div id="network-graph" class="graph-container">
+                <div class="graph-placeholder">
+                    <p>Waiting for data from units...</p>
+                    <p class="help-text">Ensure ESP32 units are powered on and connected to Wi-Fi.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pair Details Table -->
+        <section class="panel">
+            <h2>Distance & Volume Details</h2>
+            <div class="table-container">
+                <table id="pairs-table">
+                    <thead>
+                        <tr>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Distance (m)</th>
+                            <th>Quality</th>
+                            <th>Volume</th>
+                            <th>Volume Bar</th>
+                            <th>Age (s)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pairs-tbody">
+                        <tr>
+                            <td colspan="7" class="no-data">No ranging data received yet</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Side Panels -->
+        <div class="side-panels">
+            <!-- System Configuration -->
+            <section class="panel panel-small">
+                <h3>System Configuration</h3>
+                <div id="config-display" class="config-grid">
+                    <div class="config-item">
+                        <span class="config-label">Near Distance:</span>
+                        <span id="config-near" class="config-value">--</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">Far Distance:</span>
+                        <span id="config-far" class="config-value">--</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">Cutoff Distance:</span>
+                        <span id="config-cutoff" class="config-value">--</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- System Statistics -->
+            <section class="panel panel-small">
+                <h3>System Statistics</h3>
+                <div id="stats-display" class="config-grid">
+                    <div class="config-item">
+                        <span class="config-label">Total Measurements:</span>
+                        <span id="stat-total" class="config-value">--</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">Active Pairs:</span>
+                        <span id="stat-pairs" class="config-value">--</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">Uptime:</span>
+                        <span id="stat-uptime" class="config-value">--</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Controls -->
+        <section class="panel">
+            <h3>Actions</h3>
+            <div class="button-group">
+                <button id="btn-export" class="btn btn-primary">Export CSV</button>
+                <button id="btn-refresh" class="btn btn-secondary">Refresh</button>
+                <button id="btn-clear" class="btn btn-secondary">Clear Display</button>
+                <button id="btn-toggle-dev" class="btn btn-secondary">Toggle Dev Info</button>
+            </div>
+        </section>
+
+        <!-- Developer Info (hidden by default) -->
+        <section id="dev-info" class="panel dev-panel" style="display: none;">
+            <h3>Developer Information</h3>
+            <div id="dev-content">
+                <h4>Last WebSocket Message:</h4>
+                <pre id="dev-raw-data" class="code-block">No data yet</pre>
+                <h4>Connection Details:</h4>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <span class="config-label">WebSocket URL:</span>
+                        <span id="dev-ws-url" class="config-value">--</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">Connection State:</span>
+                        <span id="dev-ws-state" class="config-value">--</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">Messages Received:</span>
+                        <span id="dev-msg-count" class="config-value">0</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">Last Update:</span>
+                        <span id="dev-last-update" class="config-value">--</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 UWB Proximity Chat POC | <a href="https://github.com" target="_blank">GitHub</a> | 
+               <a href="/api/stats" target="_blank">API Stats</a> | 
+               <a href="/api/snapshot" target="_blank">Live Data</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- Load JavaScript -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
+
