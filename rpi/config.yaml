@@ -166,11 +166,13 @@ advanced:
   enable_statistics: true       # Track system statistics
   stats_window_s: 60            # Statistics calculation window
   
-  # Debug
-  debug_mode: false             # Extra verbose logging
-  simulate_units: false         # Generate fake unit data for testing
-  simulation_unit_count: 3
-  simulation_update_rate_hz: 2
+  # Simulation settings
+  simulate_units: true          # Generate fake unit data for testing
+  simulation_unit_count: 5      # Test with 5 units (A, B, C, D, E)
+  simulation_update_rate_hz: 3  # Faster updates for better visualization
+
+# Debug
+debug_mode: false             # Extra verbose logging
 
 # =============================================================================
 # PRESETS (Quick Configuration)

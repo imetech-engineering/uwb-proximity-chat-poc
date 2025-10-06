@@ -28,7 +28,10 @@ const AppState = {
         pairs: [],
         config: {},
         stats: {}
-    }
+    },
+    // Simulation state
+    simulationEnabled: true,
+    dataSource: 'simulation'
 };
 
 // =============================================================================
@@ -155,6 +158,7 @@ function updateUI(data) {
     updateUpdateRate();
 }
 
+
 /**
  * Update connection status indicator
  */
@@ -263,7 +267,7 @@ function updatePairsTable(pairs) {
 }
 
 /**
- * Update network graph visualization
+ * Update network graph visualization with distance-based positioning
  */
 function updateNetworkGraph(nodes, pairs) {
     const graphContainer = document.getElementById('network-graph');
@@ -281,28 +285,25 @@ function updateNetworkGraph(nodes, pairs) {
     // Clear container
     graphContainer.innerHTML = '';
     
+    // Get container width
+    const containerWidth = graphContainer.clientWidth || 600;
+    const svgHeight = 500;
+    
     // Create SVG
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '100%');
-    svg.setAttribute('height', '400');
-    svg.style.background = '#f8f9fa';
+    svg.setAttribute('width', containerWidth);
+    svg.setAttribute('height', svgHeight);
+    svg.setAttribute('viewBox', `0 0 ${containerWidth} ${svgHeight}`);
+    svg.style.background = 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)';
     svg.style.borderRadius = '8px';
+    svg.style.border = '1px solid var(--border-color)';
+    svg.style.display = 'block';
+    svg.style.margin = '0 auto';
     
-    // Calculate node positions (circular layout)
-    const centerX = 300;
-    const centerY = 200;
-    const radius = 120;
-    const nodePositions = {};
+    // Calculate node positions using stable positioning
+    const nodePositions = calculateStablePositions(nodes, pairs);
     
-    nodes.forEach((node, index) => {
-        const angle = (2 * Math.PI * index) / nodes.length - Math.PI / 2;
-        nodePositions[node] = {
-            x: centerX + radius * Math.cos(angle),
-            y: centerY + radius * Math.sin(angle)
-        };
-    });
-    
-    // Draw edges (pairs)
+    // Draw edges (pairs) first (behind nodes)
     pairs.forEach(pair => {
         if (nodePositions[pair.a] && nodePositions[pair.b]) {
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -311,60 +312,184 @@ function updateNetworkGraph(nodes, pairs) {
             line.setAttribute('x2', nodePositions[pair.b].x);
             line.setAttribute('y2', nodePositions[pair.b].y);
             
-            // Color by volume (thicker/greener = louder)
-            const strokeWidth = 1 + pair.vol * 5;
-            const opacity = 0.3 + pair.vol * 0.7;
+            // Enhanced visual styling
+            const strokeWidth = 1 + pair.vol * 4;
+            const opacity = 0.4 + pair.vol * 0.6;
             line.setAttribute('stroke', getVolumeColor(pair.vol));
             line.setAttribute('stroke-width', strokeWidth);
             line.setAttribute('opacity', opacity);
+            line.setAttribute('stroke-dasharray', pair.vol < 0.3 ? '5,5' : 'none');
             
             svg.appendChild(line);
             
-            // Add distance label
+            // Add distance label with better positioning
             const midX = (nodePositions[pair.a].x + nodePositions[pair.b].x) / 2;
             const midY = (nodePositions[pair.a].y + nodePositions[pair.b].y) / 2;
-            
+
+            // Background for text readability
+            const textBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            textBg.setAttribute('x', midX - 20);
+            textBg.setAttribute('y', midY - 12);
+            textBg.setAttribute('width', '40');
+            textBg.setAttribute('height', '16');
+            textBg.setAttribute('fill', 'rgba(42, 42, 42, 0.9)');
+            textBg.setAttribute('rx', '3');
+            svg.appendChild(textBg);
+
             const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             text.setAttribute('x', midX);
-            text.setAttribute('y', midY - 5);
+            text.setAttribute('y', midY - 2);
             text.setAttribute('text-anchor', 'middle');
-            text.setAttribute('font-size', '12');
-            text.setAttribute('fill', '#333');
+            text.setAttribute('font-size', '10');
+            text.setAttribute('fill', '#ffffff');
+            text.setAttribute('font-weight', '600');
+            // Show measured distance only (single value)
             text.textContent = `${pair.d.toFixed(1)}m`;
-            
+
             svg.appendChild(text);
         }
     });
     
-    // Draw nodes
+    // Draw nodes with simple styling
     nodes.forEach(node => {
         const pos = nodePositions[node];
         
-        // Circle
+        // Outer glow effect
+        const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        glow.setAttribute('cx', pos.x);
+        glow.setAttribute('cy', pos.y);
+        glow.setAttribute('r', 35);
+        glow.setAttribute('fill', 'none');
+        glow.setAttribute('stroke', 'var(--primary-color)');
+        glow.setAttribute('stroke-width', '1');
+        glow.setAttribute('opacity', '0.3');
+        svg.appendChild(glow);
+        
+        // Main circle
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('cx', pos.x);
         circle.setAttribute('cy', pos.y);
-        circle.setAttribute('r', 30);
-        circle.setAttribute('fill', '#4a90e2');
-        circle.setAttribute('stroke', '#2c3e50');
-        circle.setAttribute('stroke-width', 2);
+        circle.setAttribute('r', 25);
+        circle.setAttribute('fill', 'var(--primary-color)');
+        circle.setAttribute('stroke', '#ffffff');
+        circle.setAttribute('stroke-width', '3');
         
         svg.appendChild(circle);
         
         // Label
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         text.setAttribute('x', pos.x);
-        text.setAttribute('y', pos.y + 5);
+        text.setAttribute('y', pos.y + 4);
         text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('font-size', '20');
+        text.setAttribute('font-size', '16');
         text.setAttribute('font-weight', 'bold');
-        text.setAttribute('fill', 'white');
+        text.setAttribute('fill', '#ffffff');
         text.textContent = node;
         
         svg.appendChild(text);
     });
     
+    // Add scale indicator
+    addScaleIndicator(svg, nodePositions);
+    
     graphContainer.appendChild(svg);
+}
+
+/**
+ * Calculate fixed circular positions for nodes
+ */
+function calculateStablePositions(nodes, pairs) {
+    const graphContainer = document.getElementById('network-graph');
+    const containerWidth = graphContainer.clientWidth || 600;
+    const centerX = containerWidth / 2;
+    const centerY = 250;
+    const radius = 150; // Fixed radius for the circle
+    
+    const positions = {};
+    
+    // Place nodes in a circle
+    nodes.forEach((node, index) => {
+        const angle = (2 * Math.PI * index) / nodes.length - Math.PI / 2; // Start from top
+        positions[node] = {
+            x: centerX + radius * Math.cos(angle),
+            y: centerY + radius * Math.sin(angle)
+        };
+    });
+    
+    return positions;
+}/**
+ * Add scale indicator to show distance reference
+ */
+function addScaleIndicator(svg, nodePositions) {
+    const PIXELS_PER_METER = 60; // Base scale
+
+    // Position scale indicator in bottom-left corner
+    const scaleX = 20;
+    const scaleY = 470;
+    const scaleLength = PIXELS_PER_METER; // Base scale length
+    
+    // Background box for scale
+    const scaleBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    scaleBg.setAttribute('x', scaleX - 5);
+    scaleBg.setAttribute('y', scaleY - 25);
+    scaleBg.setAttribute('width', scaleLength + 40);
+    scaleBg.setAttribute('height', 35);
+    scaleBg.setAttribute('fill', 'rgba(42, 42, 42, 0.9)');
+    scaleBg.setAttribute('stroke', 'var(--primary-color)');
+    scaleBg.setAttribute('stroke-width', '1');
+    scaleBg.setAttribute('rx', '5');
+    svg.appendChild(scaleBg);
+    
+    // Scale line with end markers
+    const scaleLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    scaleLine.setAttribute('x1', scaleX + 15);
+    scaleLine.setAttribute('y1', scaleY);
+    scaleLine.setAttribute('x2', scaleX + 15 + scaleLength);
+    scaleLine.setAttribute('y2', scaleY);
+    scaleLine.setAttribute('stroke', '#ffffff');
+    scaleLine.setAttribute('stroke-width', '3');
+    svg.appendChild(scaleLine);
+    
+    // Left end marker
+    const leftMarker = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    leftMarker.setAttribute('x1', scaleX + 15);
+    leftMarker.setAttribute('y1', scaleY - 5);
+    leftMarker.setAttribute('x2', scaleX + 15);
+    leftMarker.setAttribute('y2', scaleY + 5);
+    leftMarker.setAttribute('stroke', '#ffffff');
+    leftMarker.setAttribute('stroke-width', '3');
+    svg.appendChild(leftMarker);
+    
+    // Right end marker
+    const rightMarker = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    rightMarker.setAttribute('x1', scaleX + 15 + scaleLength);
+    rightMarker.setAttribute('y1', scaleY - 5);
+    rightMarker.setAttribute('x2', scaleX + 15 + scaleLength);
+    rightMarker.setAttribute('y2', scaleY + 5);
+    rightMarker.setAttribute('stroke', '#ffffff');
+    rightMarker.setAttribute('stroke-width', '3');
+    svg.appendChild(rightMarker);
+    
+    // Scale text
+    const scaleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    scaleText.setAttribute('x', scaleX + 15 + scaleLength / 2);
+    scaleText.setAttribute('y', scaleY - 8);
+    scaleText.setAttribute('text-anchor', 'middle');
+    scaleText.setAttribute('font-size', '12');
+    scaleText.setAttribute('font-weight', 'bold');
+    scaleText.setAttribute('fill', 'var(--primary-color)');
+    scaleText.textContent = '1.0m';
+    svg.appendChild(scaleText);
+    
+    // Scale label
+    const scaleLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    scaleLabel.setAttribute('x', scaleX + 15 + scaleLength / 2);
+    scaleLabel.setAttribute('y', scaleY + 15);
+    scaleLabel.setAttribute('text-anchor', 'middle');
+    scaleLabel.setAttribute('font-size', '9');
+    scaleLabel.setAttribute('fill', '#b0b0b0');
+    scaleLabel.textContent = 'Scale';
+    svg.appendChild(scaleLabel);
 }
 
 /**
@@ -416,21 +541,21 @@ function createVolumeBar(volume) {
 }
 
 /**
- * Get color for quality value
+ * Get color for quality value (dark theme optimized)
  */
 function getQualityColor(quality) {
-    if (quality >= 0.8) return '#27ae60';  // Green
-    if (quality >= 0.5) return '#f39c12';  // Orange
-    return '#e74c3c';  // Red
+    if (quality >= 0.8) return '#00ff88';  // Bright green
+    if (quality >= 0.5) return '#ffb347';  // Orange
+    return '#ff6b6b';  // Red
 }
 
 /**
- * Get color for volume value
+ * Get color for volume value (dark theme optimized)
  */
 function getVolumeColor(volume) {
-    if (volume >= 0.7) return '#27ae60';  // Green
-    if (volume >= 0.3) return '#f39c12';  // Orange
-    return '#95a5a6';  // Gray
+    if (volume >= 0.7) return '#00ff88';  // Bright green
+    if (volume >= 0.3) return '#ffb347';  // Orange
+    return '#666666';  // Dark gray
 }
 
 /**
@@ -542,6 +667,112 @@ function toggleDevInfo() {
     }
 }
 
+
+/**
+ * Toggle simulation mode
+ */
+async function toggleSimulation() {
+    try {
+        const response = await fetch('/api/simulation/toggle', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            AppState.simulationEnabled = result.simulation_enabled;
+            AppState.dataSource = result.simulation_enabled ? 'simulation' : 'real';
+            
+            updateSimulationUI();
+            showNotification(result.message, 'success');
+        } else {
+            showNotification('Failed to toggle simulation', 'error');
+        }
+    } catch (error) {
+        console.error('Error toggling simulation:', error);
+        showNotification('Error toggling simulation', 'error');
+    }
+}
+
+/**
+ * Update simulation UI elements
+ */
+function updateSimulationUI() {
+    const statusEl = document.getElementById('simulation-status');
+    const buttonEl = document.getElementById('btn-toggle-simulation');
+    const badgeEl = document.getElementById('data-source-badge');
+    
+    if (AppState.simulationEnabled) {
+        statusEl.textContent = 'Simulation: ON';
+        buttonEl.className = 'btn btn-primary btn-sm';
+        badgeEl.textContent = 'Data: Simulation';
+        badgeEl.className = 'status-badge warning';
+    } else {
+        statusEl.textContent = 'Simulation: OFF';
+        buttonEl.className = 'btn btn-secondary btn-sm';
+        badgeEl.textContent = 'Data: Real';
+        badgeEl.className = 'status-badge connected';
+    }
+}
+
+/**
+ * Load simulation status on startup
+ */
+async function loadSimulationStatus() {
+    try {
+        const response = await fetch('/api/simulation/status');
+        if (response.ok) {
+            const status = await response.json();
+            AppState.simulationEnabled = status.simulation_enabled;
+            AppState.dataSource = status.simulation_enabled ? 'simulation' : 'real';
+            updateSimulationUI();
+            
+            // Update node count selector
+            const nodeCountSelect = document.getElementById('node-count-select');
+            if (nodeCountSelect && status.unit_count) {
+                nodeCountSelect.value = status.unit_count.toString();
+            }
+        }
+    } catch (error) {
+        console.error('Error loading simulation status:', error);
+    }
+}
+
+/**
+ * Change simulation node count
+ */
+async function changeNodeCount() {
+    const select = document.getElementById('node-count-select');
+    const nodeCount = parseInt(select.value);
+    
+    try {
+        const response = await fetch('/api/simulation/node-count', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ node_count: nodeCount })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showNotification(result.message, 'success');
+            
+            // Reset layout since node count changed
+            AppState.isInitialized = false;
+            AppState.nodePositions = {};
+        } else {
+            const error = await response.json();
+            showNotification(error.message || 'Failed to update node count', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating node count:', error);
+        showNotification('Error updating node count', 'error');
+    }
+}
+
 // =============================================================================
 // INITIALIZATION
 // =============================================================================
@@ -549,7 +780,7 @@ function toggleDevInfo() {
 /**
  * Initialize application
  */
-function init() {
+async function init() {
     console.log('Initializing UWB Proximity Chat UI');
     
     // Setup button handlers
@@ -557,6 +788,13 @@ function init() {
     document.getElementById('btn-refresh').addEventListener('click', refreshData);
     document.getElementById('btn-clear').addEventListener('click', clearDisplay);
     document.getElementById('btn-toggle-dev').addEventListener('click', toggleDevInfo);
+    document.getElementById('btn-toggle-simulation').addEventListener('click', toggleSimulation);
+    
+    // Setup control handlers
+    document.getElementById('node-count-select').addEventListener('change', changeNodeCount);
+    
+    // Load initial simulation status
+    await loadSimulationStatus();
     
     // Initialize WebSocket
     initWebSocket();

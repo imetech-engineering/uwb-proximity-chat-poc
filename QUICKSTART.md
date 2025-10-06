@@ -1,299 +1,350 @@
 # Quick Start Guide
 
-Get your UWB Proximity Chat POC running in minutes!
+Get your UWB Proximity Chat system running in 15 minutes.
 
-## What Was Created
+---
 
-A complete, buildable proof-of-concept with:
+## What You Need
 
-- **ESP32 Firmware** (Arduino-style C++)
-  - Full UWB ranging implementation (DS-TWR)
-  - Wi-Fi + UDP communication
-  - Simulation mode for testing without hardware
-  - 5 source files + comprehensive docs
+- Raspberry Pi (3, 4, or 5)
+- 3 or more Makerfabs ESP32 UWB DW3000 boards
+- USB cables for programming
+- Wi-Fi network (2.4GHz)
+- Computer for initial setup
 
-- **Raspberry Pi Hub** (Python/FastAPI)
-  - UDP listener for distance data
-  - WebSocket broadcaster for real-time UI
-  - REST API for data export
-  - Volume simulation algorithm
+---
 
-- **Web UI** (HTML/CSS/JavaScript)
-  - Real-time network visualization
-  - Distance/quality/volume display
-  - CSV export functionality
-  - Developer tools panel
+## Step-by-Step Setup
 
-- **Complete Documentation**
-  - Architecture overview
-  - Wiring diagrams
-  - Calibration procedures
-  - Protocol specifications
-  - Comprehensive test plan
+### Step 1: Raspberry Pi Setup (5 minutes)
 
-## Getting Started (5 Minutes)
-
-### Option 1: Test Without Hardware (Simulation Mode)
-
-**1. Flash ESP32 Units** (or skip if testing simulation only)
-
+**A. Connect to your Raspberry Pi**
 ```bash
-# In esp32/unit_firmware/config.h, ensure:
-#define ENABLE_SIMULATION true
-#define WIFI_SSID "YourNetwork"
-#define WIFI_PASS "YourPassword"
-#define HUB_UDP_IP "192.168.1.100"  # Your Pi's IP
+ssh pi@raspberrypi.local
+# Or use keyboard/monitor directly
 ```
 
-Upload to 3 ESP32 boards with UNIT_ID set to 'A', 'B', 'C' respectively.
-
-**2. Start Raspberry Pi Hub**
-
+**B. Download the software**
 ```bash
-cd rpi
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+cd ~
+git clone <your-repository-url> uwb-system
+cd uwb-system/rpi
+```
+
+**C. Install requirements**
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+**D. Find your Pi's IP address**
+```bash
+hostname -I
+```
+**Write this down!** Example: `192.168.1.100`
+
+**E. Start the server**
+```bash
 python3 server.py
 ```
 
-**3. Open Web UI**
+You should see:
+```
+INFO: Starting UDP listener on 0.0.0.0:9999
+INFO: Server ready at http://0.0.0.0:8000
+```
 
-Navigate to: `http://localhost:8000`
-
-You should see simulated ranging data flowing!
+Raspberry Pi is ready.
 
 ---
 
-### Option 2: Full Hardware Setup
+### Step 2: ESP32 Configuration (3 minutes per unit)
 
-**Prerequisites:**
-- 3× ESP32 DevKit boards
-- 3× DW3000 UWB modules
-- Raspberry Pi 4
-- Breadboards, jumper wires
-- Wi-Fi network
+**A. Open the configuration file**
 
-**Step 1: Wire Hardware** (30 minutes)
-- Follow `esp32/docs/WIRING.md`
-- Connect each ESP32 to DW3000 via SPI
-- Power from USB
-
-**Step 2: Configure & Flash Firmware** (15 minutes)
-
-For each unit (A, B, C):
-1. Edit `esp32/unit_firmware/config.h`:
-   ```cpp
-   #define WIFI_SSID "YourNetwork"
-   #define WIFI_PASS "YourPassword"
-   #define HUB_UDP_IP "192.168.1.100"  // Your Pi IP
-   #define UNIT_ID 'A'  // Change for each unit: 'A', 'B', 'C'
-   #define ENABLE_SIMULATION false  // Use real hardware
-   ```
-
-2. Open `esp32/unit_firmware/main.cpp` in Arduino IDE
-3. Select board: "ESP32 Dev Module"
-4. Upload (Ctrl+U)
-5. Monitor Serial (115200 baud) - should see "Wi-Fi connected"
-
-**Step 3: Start Hub** (5 minutes)
-
-On Raspberry Pi:
-```bash
-cd rpi
-./scripts/run_dev.sh  # Auto-setup and run
+Navigate to:
+```
+esp32/unit_firmware/config.h
 ```
 
-**Step 4: Access UI**
-- Open browser to `http://[pi-ip]:8000`
-- Should see 3 nodes and ranging data
+**B. Change these THREE settings:**
 
-**Step 5: Calibrate** (15 minutes)
-- Follow `esp32/docs/CALIBRATION.md`
-- Place units 1m apart
-- Adjust `ANTENNA_DELAY` and `DIST_OFFSET_M` in config.h
-
----
-
-## Repository Structure
-
-```
-.
-├── README.md                      # Main documentation
-├── LICENSE                        # MIT license
-├── QUICKSTART.md                  # This file
-├── esp32/
-│   ├── unit_firmware/             # Arduino firmware
-│   │   ├── main.cpp              # Main entry point
-│   │   ├── config.h              # ⚙️ CONFIGURE HERE
-│   │   ├── dw3000_driver.h       # UWB abstraction
-│   │   ├── wifi_udp.h            # Network layer
-│   │   └── utils.h               # Utilities
-│   └── docs/
-│       ├── WIRING.md             # Hardware connections
-│       └── CALIBRATION.md        # Calibration guide
-├── rpi/
-│   ├── server.py                 # FastAPI hub
-│   ├── config.yaml               # ⚙️ CONFIGURE HERE
-│   ├── requirements.txt          # Python deps
-│   ├── scripts/
-│   │   ├── run_dev.sh           # Dev launcher
-│   │   └── systemd.service      # Service config
-│   └── static/
-│       ├── index.html           # UI
-│       ├── app.js               # Frontend logic
-│       └── styles.css           # Styling
-└── docs/
-    ├── PROTOCOL.md               # Message formats
-    ├── TESTPLAN.md               # Testing procedures
-    └── VERSIONS.md               # Changelog
-```
-
-## Key Configuration Files
-
-### ESP32: `esp32/unit_firmware/config.h`
-
-**Essential settings:**
 ```cpp
-// Network
-#define WIFI_SSID "YourNetwork"
-#define WIFI_PASS "password"
-#define HUB_UDP_IP "192.168.1.100"
-#define HUB_UDP_PORT 9999
+// 1. UNIT ID - Must be unique for each ESP32!
+#define UNIT_ID 'A'  // Change to 'B' for second unit, 'C' for third, etc.
 
-// Unit Identity (CHANGE FOR EACH UNIT!)
-#define UNIT_ID 'A'  // 'A', 'B', or 'C'
+// 2. YOUR WI-FI NETWORK
+#define WIFI_SSID "YourNetworkName"
+#define WIFI_PASS "YourWiFiPassword"
 
-// Testing
-#define ENABLE_SIMULATION false  // true = no hardware needed
-
-// Calibration (see CALIBRATION.md)
-#define ANTENNA_DELAY_TX 16450
-#define ANTENNA_DELAY_RX 16450
-#define DIST_OFFSET_M 0.00
+// 3. RASPBERRY PI IP (from Step 1.D)
+#define HUB_UDP_IP "192.168.1.100"  // ← Your Pi's IP here
 ```
 
-### Hub: `rpi/config.yaml`
+**Important:** Each ESP32 must have a different `UNIT_ID`!
+- First unit: `'A'`
+- Second unit: `'B'`
+- Third unit: `'C'`
+- And so on...
 
-**Essential settings:**
-```yaml
-network:
-  udp_listen_port: 9999
-  rest_port: 8000
+**C. Flash the ESP32**
 
-volume_model:
-  near_distance_m: 1.5  # Loud
-  far_distance_m: 4.0   # Quiet
-  cutoff_distance_m: 5.0  # Silent
+1. Connect ESP32 to your computer via USB
+2. Open in Arduino IDE or PlatformIO
+3. Select board: "ESP32 Dev Module"
+4. Select correct COM port
+5. Click Upload/Flash
+6. Wait for "Done uploading" message
 
-ui:
-  broadcast_interval_ms: 500  # 2 Hz updates
+**D. Verify it works**
+
+Open Serial Monitor (115200 baud):
+```
+[INFO] Wi-Fi connected!
+[INFO] IP address: 192.168.1.101
+[INFO] Initialization Complete
 ```
 
-## Testing Your Setup
+**E. Repeat for all units**
 
-### Quick Smoke Test
+Change `UNIT_ID` and flash each one:
+- ESP32 #1: `UNIT_ID 'A'`
+- ESP32 #2: `UNIT_ID 'B'`
+- ESP32 #3: `UNIT_ID 'C'`
+- ESP32 #4: `UNIT_ID 'D'`
+- etc.
 
-1. **Power on units** - Serial shows "Wi-Fi connected"
-2. **Start hub** - Console shows "Hub is ready!"
-3. **Open UI** - Browser loads page
-4. **Check WebSocket** - Status badge turns green "Connected"
-5. **Verify data** - Nodes appear, distances update
+ESP32 units are ready.
 
-If all above work: ✅ **System operational!**
+---
 
-### Validate Accuracy
+### Step 3: Test the System (2 minutes)
 
-1. Place 2 units exactly 1.00m apart (tape measure)
-2. Read distance in UI
-3. Should show: 0.90-1.10m (±10cm)
+**A. Power on ESP32 units**
+- Connect to USB power banks or chargers
+- LEDs should blink on connection
 
-If not accurate: Run calibration procedure in `esp32/docs/CALIBRATION.md`
+**B. Open the web dashboard**
 
-### Full Test Suite
+On any device (phone, tablet, laptop) connected to the same Wi-Fi:
 
-See `docs/TESTPLAN.md` for comprehensive validation procedures.
+```
+http://192.168.1.100:8000
+```
+(Replace with your Raspberry Pi's IP)
+
+**C. Check the display**
+
+You should see:
+- "Connected" status (green)
+- Network graph with nodes A, B, C, ...
+- Distance measurements updating
+- Live data in the table
+
+**D. Test movement**
+
+- Move ESP32 units closer together → distances decrease
+- Move them apart → distances increase
+- Values update every ~0.5 seconds
+
+System is working.
+
+---
+
+## Quick Reference
+
+### Starting the Server
+
+```bash
+cd ~/uwb-system/rpi
+python3 server.py
+```
+
+### Stopping the Server
+
+Press `Ctrl+C` in the terminal
+
+### Accessing the Dashboard
+
+```
+http://<raspberry-pi-ip>:8000
+```
+
+### Finding Raspberry Pi IP
+
+```bash
+hostname -I
+```
+
+### Checking ESP32 Logs
+
+1. Connect ESP32 via USB
+2. Open Serial Monitor
+3. Set baud rate: 115200
+4. Watch for connection messages
+
+---
 
 ## Common Issues
 
-### ESP32 won't connect to Wi-Fi
-- Check SSID/password in config.h
-- Ensure 2.4GHz network (ESP32 doesn't support 5GHz)
-- Press RESET button on ESP32
+### Problem: "Waiting for data..." on dashboard
 
-### Hub not receiving data
-- Verify hub IP matches config.h
-- Check firewall (allow UDP 9999)
-- Confirm ESP32 and Pi on same network
+**Fix:**
+1. Check Raspberry Pi server is running
+2. Check ESP32 units are powered on
+3. Verify ESP32 units connected to Wi-Fi (check serial monitor)
+4. Confirm `HUB_UDP_IP` matches Raspberry Pi IP
 
-### UI shows "Disconnected"
-- Confirm hub server is running
-- Check browser console for errors
-- Try different browser
+### Problem: ESP32 won't connect to Wi-Fi
 
-### Distances wildly wrong
-- Run calibration (CALIBRATION.md)
-- Check antenna connected
-- Ensure line-of-sight between units
+**Fix:**
+1. Double-check Wi-Fi name and password in `config.h`
+2. Ensure network is 2.4GHz (not 5GHz)
+3. Move ESP32 closer to Wi-Fi router
+4. Check Wi-Fi network is active
 
-## Next Steps
+### Problem: Can't access dashboard
 
-### Immediate (POC Phase)
-1. **Build & test** - Follow this quickstart
-2. **Calibrate** - Get accurate measurements
-3. **Validate** - Run tests from TESTPLAN.md
-4. **Document** - Record results and issues
+**Fix:**
+1. Verify you're on the same Wi-Fi network
+2. Check Raspberry Pi IP address is correct
+3. Use `http://` not `https://`
+4. Try from different device
 
-### Future (Production)
-1. **Audio integration** - Add real microphones/speakers
-2. **Custom PCB** - Design integrated board
-3. **Security** - Add authentication, encryption
-4. **Scale** - Support more units, mesh networking
-5. **Mobile app** - Build native app interface
+### Problem: Wrong distance measurements
 
-## Getting Help
-
-1. **Check logs:**
-   - ESP32: Serial monitor (115200 baud)
-   - Hub: `tail -f rpi/logs/hub.log`
-   - Browser: Console (F12)
-
-2. **Review docs:**
-   - README.md - Overview
-   - WIRING.md - Hardware issues
-   - CALIBRATION.md - Accuracy issues
-   - PROTOCOL.md - Communication issues
-   - TESTPLAN.md - Validation procedures
-
-3. **Debug mode:**
-   - ESP32: Set `LOG_LEVEL` to `LOG_LEVEL_DEBUG` in config.h
-   - Hub: Set `log_level: "DEBUG"` in config.yaml
-   - UI: Click "Toggle Dev Info" button
-
-## Success Criteria
-
-Your POC is working correctly when:
-
-- All 3 units show in UI
-- Distances update at ~2 Hz
-- Distance accuracy ±10cm (after calibration)
-- No errors in logs
-- System runs for >1 hour without crashes
-- CSV export works
-
-## You're All Set!
-
-The codebase is complete and ready to build. All files compile/run out of the box.
-
-**Acceptance criteria met:**
-- Complete, buildable codebase
-- Clean, commented code
-- All settings configurable
-- Comprehensive documentation
-- Simulation mode works without hardware
-- Ready for novice to replicate
+**Solution:**
+Run calibration - see `esp32/docs/CALIBRATION.md`
 
 ---
 
-*For questions or issues, consult the documentation files or enable debug logging.*
+## Next Steps
 
+### Enable Automatic Startup
+
+To make the server start automatically on Raspberry Pi boot:
+
+```bash
+cd ~/uwb-system/rpi/scripts
+sudo cp systemd.service /etc/systemd/system/uwb-hub.service
+sudo systemctl enable uwb-hub.service
+sudo systemctl start uwb-hub.service
+```
+
+### Customize Settings
+
+**Raspberry Pi:** Edit `rpi/config.yaml`
+- Change ports
+- Adjust audio model
+- Configure data export
+
+**ESP32:** Edit `esp32/unit_firmware/config.h`
+- Adjust measurement frequency
+- Change quality threshold
+- Set calibration values
+
+### Export Data
+
+Click "Export CSV" button in dashboard to download measurements.
+
+### Add More Units
+
+1. Configure new ESP32 with unique `UNIT_ID`
+2. Flash and power on
+3. It will automatically appear in the dashboard
+
+---
+
+## System Architecture
+
+```
+┌──────────┐     Wi-Fi     ┌─────────────┐
+│ ESP32-A  ├──────────────►│             │
+└──────────┘               │             │
+                           │ Raspberry   │      Browser
+┌──────────┐     Wi-Fi     │     Pi      ├────────────► 📊 Dashboard
+│ ESP32-B  ├──────────────►│  (Server)   │
+└──────────┘               │             │
+                           │             │
+┌──────────┐     Wi-Fi     │             │
+│ ESP32-C  ├──────────────►│             │
+└──────────┘               └─────────────┘
+
+ESP32 units measure distances → Send to Raspberry Pi → Display in browser
+```
+
+---
+
+## Configuration Checklist
+
+### Before First Use
+
+**Raspberry Pi:**
+- [x] Software installed
+- [x] Requirements installed (`pip install -r requirements.txt`)
+- [x] IP address noted
+- [x] Server started
+
+**Each ESP32:**
+- [x] `UNIT_ID` set (unique: A, B, C, ...)
+- [x] `WIFI_SSID` set to your network
+- [x] `WIFI_PASS` set to your password
+- [x] `HUB_UDP_IP` set to Raspberry Pi IP
+- [x] Firmware flashed
+- [x] Connection verified (serial monitor)
+
+**Network:**
+- [x] 2.4GHz Wi-Fi active
+- [x] All devices on same network
+- [x] Raspberry Pi accessible from browser
+
+---
+
+## Tips for Best Results
+
+**Distance Measurement:**
+- Keep units at least 20cm apart
+- Avoid metal objects between units
+- Keep antennas vertical and exposed
+- Don't cover ESP32 modules with hands
+
+**Wi-Fi Performance:**
+- Keep units within 20m of router
+- Reduce network congestion
+- Use dedicated Wi-Fi if available
+- Check signal strength (RSSI > -70 dBm)
+
+**Battery Life:**
+- Use 2000mAh+ power banks
+- Reduce measurement rate if needed
+- Monitor battery during events
+- Keep spare batteries charged
+
+---
+
+## Support Files
+
+**Calibration:**
+- `esp32/docs/CALIBRATION.md` - Improve distance accuracy
+
+**Full Documentation:**
+- `README.md` - Complete system documentation
+
+**Configuration:**
+- `rpi/config.yaml` - Server settings
+- `esp32/unit_firmware/config.h` - ESP32 settings
+
+---
+
+## Help & Contact
+
+**Logs:**
+- Server: `rpi/logs/hub.log`
+- ESP32: Serial monitor (115200 baud)
+
+**Developed by:**
+IMeTech Engineering  
+https://imetech.nl/
+
+---
+
+Ready to go? Start with Step 1 above.

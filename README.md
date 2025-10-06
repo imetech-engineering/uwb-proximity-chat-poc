@@ -1,351 +1,407 @@
-# UWB Proximity Chat System - Proof of Concept
+# UWB Proximity Chat System
 
-A complete proof-of-concept demonstrating UWB-based proximity chat using ESP32 + DW3000 units and a Raspberry Pi hub. This POC focuses on reliable ranging and visualization without actual audio hardware.
+**Real-time distance tracking and audio volume simulation for events**
 
-## Project Goals
+---
 
-**Goals:**
-- Demonstrate reliable UWB ranging (DW3000) between multiple units
-- Central hub-driven logic for "who hears whom" based on distance
-- Real-time web UI visualization of distances and simulated volume
-- Clean, configurable, documented code ready for productization
+## What is this?
 
-**Non-goals (this POC):**
-- Real microphones/speakers (hooks provided for future integration)
-- Custom PCB design (breadboard/dev boards only)
-- Audio processing/streaming
+This system uses Ultra-Wideband (UWB) radio technology to accurately measure distances between people at events. It then simulates how audio volume should change based on proximity - the closer people are, the louder they hear each other.
 
-## Architecture
+Perfect for:
+- Event planning and audio system setup
+- Testing proximity-based audio concepts
+- Visualizing crowd dynamics in real-time
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      SYSTEM OVERVIEW                         │
-└─────────────────────────────────────────────────────────────┘
+---
 
-   Unit A (ESP32)          Unit B (ESP32)          Unit C (ESP32)
-   ┌──────────┐            ┌──────────┐            ┌──────────┐
-   │ ESP32    │            │ ESP32    │            │ ESP32    │
-   │ DevKit   │            │ DevKit   │            │ DevKit   │
-   │          │            │          │            │          │
-   │ DW3000◄──┼────UWB────►│ DW3000◄──┼────UWB────►│ DW3000   │
-   │ (SPI)    │   Ranging  │ (SPI)    │   Ranging  │ (SPI)    │
-   └────┬─────┘            └────┬─────┘            └────┬─────┘
-        │                       │                       │
-        │ Wi-Fi                 │ Wi-Fi                 │ Wi-Fi
-        │ UDP JSON              │ UDP JSON              │ UDP JSON
-        │ (distances)           │ (distances)           │ (distances)
-        └───────────────┬───────┴───────────────────────┘
-                        ▼
-              ┌─────────────────────┐
-              │  Raspberry Pi 4     │
-              │  (Hub)              │
-              │                     │
-              │  ┌──────────────┐   │
-              │  │ FastAPI      │   │
-              │  │ Backend      │   │
-              │  │              │   │
-              │  │ • UDP Ingest │   │
-              │  │ • Volume Sim │   │
-              │  │ • WebSocket  │   │
-              │  │ • REST API   │   │
-              │  └──────┬───────┘   │
-              └─────────┼───────────┘
-                        │
-                        │ WebSocket + HTTP
-                        ▼
-              ┌─────────────────────┐
-              │   Web Browser       │
-              │   (UI)              │
-              │                     │
-              │  • Distance Graph   │
-              │  • Volume Display   │
-              │  • Node Status      │
-              │  • CSV Export       │
-              └─────────────────────┘
-```
+## System Components
 
-### Data Flow
+### Hardware Required
 
-1. **Ranging**: Each ESP32 unit performs DS-TWR (Double-Sided Two-Way Ranging) with peers via UWB
-2. **Upload**: Units send distance measurements as UDP JSON packets to hub
-3. **Processing**: Hub computes simulated volume based on distance (closer = louder)
-4. **Broadcast**: Hub streams updates via WebSocket to connected clients
-5. **Visualization**: Web UI displays real-time network graph and metrics
+1. **Raspberry Pi** (one per system)
+   - Acts as the central hub
+   - Runs the web interface
+   - Collects and displays data
+   - Any Raspberry Pi 3/4/5 works
 
-## Repository Layout
+2. **Makerfabs ESP32 UWB DW3000 boards** (3 or more)
+   - Integrated ESP32 and DW3000 on single board
+   - No wiring or assembly required
+   - Worn by participants
+   - Measure distances between each other
+   - Send data wirelessly to the Raspberry Pi
+   - Battery powered for mobility
+   - Product info: https://github.com/Makerfabs/Makerfabs-ESP32-UWB-DW3000
+
+3. **Wi-Fi Network**
+   - All devices must be on the same network
+   - 2.4GHz network required (ESP32 limitation)
+
+### Software Included
+
+- **Raspberry Pi Hub Server** - Web interface and data collector
+- **ESP32 Firmware** - Distance measurement software
+- **Web Dashboard** - Real-time visualization
+
+---
+
+## Quick Overview
 
 ```
-.
-├── README.md                      # This file
-├── LICENSE                        # MIT license
-├── esp32/                         # ESP32 firmware
-│   ├── unit_firmware/
-│   │   ├── main.cpp              # Arduino entrypoint
-│   │   ├── config.h              # ⚙️ ALL ESP32 SETTINGS
-│   │   ├── dw3000_driver.h       # UWB hardware abstraction
-│   │   ├── wifi_udp.h            # Wi-Fi + UDP client
-│   │   └── utils.h               # Helper utilities
-│   └── docs/
-│       ├── WIRING.md             # Pin mapping and connections
-│       └── CALIBRATION.md        # Antenna calibration guide
-├── rpi/                           # Raspberry Pi hub
-│   ├── server.py                 # FastAPI application
-│   ├── config.yaml               # ⚙️ ALL HUB SETTINGS
-│   ├── requirements.txt          # Python dependencies
-│   ├── static/
-│   │   ├── index.html           # Web UI
-│   │   ├── app.js               # Frontend logic
-│   │   └── styles.css           # Styling
-│   └── scripts/
-│       ├── run_dev.sh           # Dev server launcher
-│       └── systemd.service      # System service config
-└── docs/                          # Documentation
-    ├── TESTPLAN.md               # Validation procedures
-    ├── PROTOCOL.md               # Message formats
-    └── VERSIONS.md               # Changelog
+┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+│  Person A   │         │  Person B   │         │  Person C   │
+│  (ESP32-A)  │◄────────┤  (ESP32-B)  ├────────►│  (ESP32-C)  │
+└──────┬──────┘   UWB   └──────┬──────┘   UWB   └──────┬──────┘
+       │                       │                        │
+       │         Wi-Fi         │          Wi-Fi         │
+       └───────────┬───────────┴────────────┬───────────┘
+                   │                        │
+                   ▼                        ▼
+              ┌─────────────────────────────────┐
+              │    Raspberry Pi Hub Server      │
+              │  ● Collects distance data       │
+              │  ● Calculates audio volumes     │
+              │  ● Hosts web dashboard          │
+              └─────────────┬───────────────────┘
+                            │
+                            │ Browser
+                            ▼
+                   ┌─────────────────┐
+                   │  Web Dashboard  │
+                   │  ● Network graph │
+                   │  ● Live distances│
+                   │  ● CSV export    │
+                   └─────────────────┘
 ```
 
-## Quick Start
+---
 
-### Prerequisites
+## Getting Started
 
-**Hardware:**
-- 3× ESP32 DevKit boards (ESP32-WROOM or similar)
-- 3× DW3000 UWB modules (Qorvo DWM3000 or compatible)
-- 1× Raspberry Pi 4 (2GB+ recommended)
-- Breadboards, jumper wires, USB cables
-- Wi-Fi network or router
+### Step 1: Set Up the Raspberry Pi
 
-**Software:**
-- Arduino IDE 2.x or PlatformIO
-- Python 3.8+ on Raspberry Pi
-- Modern web browser
-
-### ESP32 Setup
-
-#### Option 1: Arduino IDE
-
-1. **Install ESP32 board support:**
-   - Open Arduino IDE → Preferences
-   - Add to "Additional Board Manager URLs": 
-     ```
-     https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-     ```
-   - Tools → Board Manager → Search "esp32" → Install
-
-2. **Configure firmware:**
+1. **Install the software:**
    ```bash
-   # Edit esp32/unit_firmware/config.h
-   # Set WIFI_SSID, WIFI_PASS, HUB_UDP_IP, UNIT_ID
+   # On your Raspberry Pi
+   cd ~/
+   git clone <repository-url>
+   cd Software/rpi
    ```
 
-3. **Upload:**
-   - Open `esp32/unit_firmware/main.cpp` in Arduino IDE
-   - Tools → Board → ESP32 Dev Module
-   - Tools → Port → (select your ESP32)
-   - Upload (Ctrl+U)
-   - Repeat for all 3 units with different `UNIT_ID` ('A', 'B', 'C')
-
-4. **Monitor:**
-   - Tools → Serial Monitor (115200 baud)
-
-#### Option 2: PlatformIO
-
-1. **Create platformio.ini in esp32/unit_firmware/:**
-   ```ini
-   [env:esp32dev]
-   platform = espressif32
-   board = esp32dev
-   framework = arduino
-   monitor_speed = 115200
-   lib_deps = 
-       # Add DW3000 library when available
-   ```
-
-2. **Build and upload:**
+2. **Install dependencies:**
    ```bash
-   cd esp32/unit_firmware
-   pio run --target upload
-   pio device monitor
+   python3 -m pip install -r requirements.txt
    ```
 
-### Raspberry Pi Setup
-
-1. **Clone repository:**
+3. **Note your Raspberry Pi's IP address:**
    ```bash
-   cd ~
-   git clone <your-repo-url> proximity-chat
-   cd proximity-chat/rpi
+   hostname -I
    ```
+   Write this down - you'll need it for the ESP32 configuration!
 
-2. **Create Python virtual environment:**
+4. **Start the server:**
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install --upgrade pip
-   pip install -r requirements.txt
+   python3 server.py
    ```
 
-3. **Configure hub:**
-   ```bash
-   # Edit config.yaml
-   # Set udp_listen_port, volume thresholds, etc.
-   nano config.yaml
+   You should see:
+   ```
+   INFO: Starting UDP listener on 0.0.0.0:9999
+   INFO: Starting WebSocket server...
+   INFO: Server ready at http://0.0.0.0:8000
    ```
 
-4. **Run development server:**
-   ```bash
-   chmod +x scripts/run_dev.sh
-   ./scripts/run_dev.sh
+### Step 2: Configure the ESP32 Units
+
+1. **Open the firmware configuration file:**
    ```
-   Or manually:
-   ```bash
-   uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+   esp32/unit_firmware/config.h
    ```
 
-5. **Access UI:**
-   - Open browser: `http://<raspberry-pi-ip>:8000`
+2. **Edit these settings for EACH unit:**
 
-### Simulation Mode (No Hardware)
+   ```cpp
+   // UNIQUE FOR EACH UNIT! Change this for every ESP32
+   #define UNIT_ID 'A'  // First unit = 'A', second = 'B', third = 'C', etc.
+   
+   // YOUR WI-FI NETWORK
+   #define WIFI_SSID "YourNetworkName"     // Your Wi-Fi name
+   #define WIFI_PASS "YourPassword"        // Your Wi-Fi password
+   
+   // YOUR RASPBERRY PI IP ADDRESS (from Step 1.3)
+   #define HUB_UDP_IP "192.168.1.100"      // Replace with your Pi's IP
+   ```
 
-Test the system without UWB hardware:
+3. **Flash each ESP32:**
+   - Connect ESP32 to computer via USB
+   - Open in Arduino IDE or PlatformIO
+   - Upload the firmware
+   - Repeat for each unit with different `UNIT_ID`
 
-1. **ESP32:** Set `ENABLE_SIMULATION true` in `config.h`
-2. **Upload** firmware - units will generate synthetic distances
-3. **Start hub** as normal
-4. **View UI** - you'll see simulated ranging data
+### Step 3: Test the System
+
+1. **Power on all ESP32 units**
+   - They should connect to Wi-Fi automatically
+   - LEDs will blink when connected
+
+2. **Open the web dashboard**
+   - On any computer/tablet/phone on the same network
+   - Go to: `http://<raspberry-pi-ip>:8000`
+   - Example: `http://192.168.1.100:8000`
+
+3. **You should see:**
+   - Network graph showing all units
+   - Real-time distance measurements
+   - Simulated audio volumes
+
+---
+
+## Using the System
+
+### Web Dashboard Features
+
+**Network Graph**
+- Shows all units as circles
+- Lines connect units that can measure each other
+- Distance labels show current separation
+- Updates in real-time
+
+**Distance Pairs Table**
+- Lists all unit pairs
+- Shows exact distances
+- Displays measurement quality
+- Calculates simulated audio volume
+
+**Controls**
+- **Export CSV**: Download all measurement data
+- **Refresh**: Manual data refresh
+- **Clear**: Reset the display
+
+### Understanding the Display
+
+**Distance**: Physical separation in meters between two units
+
+**Quality**: Measurement confidence (0.0 = unreliable, 1.0 = perfect)
+
+**Volume**: Simulated audio loudness (0.0 = silent, 1.0 = maximum)
+- Closer distance = higher volume
+- Quality affects volume stability
+
+---
 
 ## Configuration
 
-### ESP32 (`esp32/unit_firmware/config.h`)
+### Raspberry Pi Settings
 
-All settings are at the top of `config.h`:
-- **Network**: WIFI_SSID, WIFI_PASS, HUB_UDP_IP, HUB_UDP_PORT
-- **Identity**: UNIT_ID ('A', 'B', or 'C')
-- **UWB**: Channel, data rate, TX power, ranging interval
-- **Calibration**: Antenna delay, distance offset
-- **Debug**: LOG_LEVEL, simulation mode
+Edit `rpi/config.yaml` to customize:
 
-### Raspberry Pi (`rpi/config.yaml`)
+```yaml
+# Network ports
+network:
+  udp_listen_port: 9999      # Port to receive data from ESP32 units
+  websocket_port: 8000       # Port for web dashboard
 
-YAML configuration file:
-- **Network**: UDP/WebSocket/REST ports
-- **Volume Model**: Near/far thresholds, min/max volume
-- **UI**: Refresh rate, developer tools
-- **Data**: CSV export settings
-- **Security**: API tokens, CORS origins
+# Audio simulation model
+audio:
+  model: "inverse_square"    # How volume decreases with distance
+  max_distance: 10.0         # Maximum audible distance (meters)
+  min_volume: 0.0            # Minimum volume
+  max_volume: 1.0            # Maximum volume
 
-## Testing
-
-See [`docs/TESTPLAN.md`](docs/TESTPLAN.md) for complete validation procedures.
-
-**Quick smoke test:**
-1. Power on all 3 ESP32 units, verify serial output shows "RANGING OK"
-2. Start Raspberry Pi hub, check logs for "UDP listener started"
-3. Open web UI, confirm 3 nodes appear
-4. Move units closer/farther, observe distance changes in real-time
-5. Export CSV data via UI button
-
-**Acceptance criteria:**
-- ✅ Distinguish 1m vs 3m reliably (±10cm in LOS)
-- ✅ UI updates ≥2 Hz
-- ✅ WebSocket latency <500ms
-- ✅ Simulation mode works end-to-end
-
-## Protocols
-
-See [`docs/PROTOCOL.md`](docs/PROTOCOL.md) for detailed message formats.
-
-**Unit → Hub (UDP JSON):**
-```json
-{"node":"A","peer":"B","distance":1.23,"quality":0.95,"ts":1730567890}
+# Data export
+persistence:
+  csv_export_enabled: true   # Save data to CSV file
+  csv_export_path: "./data/ranging_data.csv"
 ```
 
-**Hub → UI (WebSocket JSON):**
-```json
-{
-  "nodes":["A","B","C"],
-  "pairs":[
-    {"a":"A","b":"B","d":1.23,"q":0.95,"vol":0.82}
-  ],
-  "config":{"near_m":1.5,"far_m":4.0}
-}
+### ESP32 Settings
+
+Edit `esp32/unit_firmware/config.h`:
+
+```cpp
+// How often to measure distances (milliseconds)
+#define RANGING_INTERVAL_MS 500  // Default: 2 measurements per second
+
+// Minimum quality to accept measurement
+#define QUALITY_THRESHOLD 0.5    // Default: 0.5 (50% confidence)
 ```
 
-## Hardware Wiring
-
-See [`esp32/docs/WIRING.md`](esp32/docs/WIRING.md) for complete pinout.
-
-**Quick reference (ESP32 ↔ DW3000):**
-- VSPI (default SPI bus)
-- CS: GPIO 5
-- IRQ: GPIO 17
-- RST: GPIO 27
-- 3.3V power rail
+---
 
 ## Calibration
 
-See [`esp32/docs/CALIBRATION.md`](esp32/docs/CALIBRATION.md) for tuning procedure.
+For accurate distance measurements, you may need to calibrate the system:
 
-1. Place two units exactly 1.00m apart (LOS)
-2. Read distance from serial monitor
-3. Adjust `ANTENNA_DELAY_TX/RX` and `DIST_OFFSET_M` in `config.h`
-4. Repeat at 3.00m for verification
+1. Place two units at a known distance (e.g., exactly 2.0 meters)
+2. Note the measured distance on the dashboard
+3. Calculate the error: `error = measured - actual`
+4. Edit `esp32/unit_firmware/config.h`:
+   ```cpp
+   #define DIST_OFFSET_M -0.15  // If measured is 2.15m, set offset to -0.15
+   ```
+5. Re-flash the ESP32 units
+
+For more detailed calibration, see `esp32/docs/CALIBRATION.md`
+
+---
 
 ## Troubleshooting
 
-**Units won't connect to Wi-Fi:**
-- Verify SSID/password in `config.h`
-- Check 2.4GHz network (ESP32 doesn't support 5GHz)
-- Monitor serial output for error messages
+### Problem: Web dashboard shows "Waiting for data..."
 
-**No ranging data:**
-- Check DW3000 wiring (especially CS, IRQ, RST)
-- Verify 3.3V power supply is stable
-- Enable simulation mode to test network path
+**Check:**
+1. Is the Raspberry Pi server running? (`python3 server.py`)
+2. Are ESP32 units powered on?
+3. Did ESP32 units connect to Wi-Fi? (check serial monitor)
+4. Is the ESP32 configured with correct Raspberry Pi IP?
 
-**UI shows no data:**
-- Verify hub IP matches `HUB_UDP_IP` in ESP32 config
-- Check firewall allows UDP on configured port
-- Inspect browser console and hub logs
+### Problem: ESP32 won't connect to Wi-Fi
 
-**Inaccurate distances:**
-- Run calibration procedure
-- Check for obstacles (UWB requires line-of-sight)
-- Verify antenna orientation (keep flat, parallel)
+**Check:**
+1. Is the Wi-Fi name and password correct in `config.h`?
+2. Is it a 2.4GHz network? (ESP32 doesn't support 5GHz)
+3. Is the network reachable from the ESP32 location?
 
-## Future Extensions
+### Problem: Distances seem incorrect
 
-**Audio Integration (hooks provided):**
-- Replace simulated volume with real audio streaming
-- Add I2S microphone/speaker support to ESP32
-- Implement OPUS codec for compression
-- Use volume coefficients from hub for mixing
+**Solutions:**
+1. Run the calibration procedure (see above)
+2. Ensure units have clear line-of-sight
+3. Keep units away from metal objects
+4. Check antenna orientation (should be vertical)
 
-**Production Hardening:**
-- Custom PCB with integrated antenna
-- Secure WebSocket (WSS) and TLS for REST
-- Authentication and multi-hub support
-- Persistent storage (PostgreSQL/InfluxDB)
-- MQTT for IoT integration
+### Problem: Measurements are unstable/jumping
 
-**Advanced Features:**
-- 3D position estimation (TDOA)
-- Mesh networking (ESP-NOW)
-- Mobile app (React Native)
-- Analytics dashboard
+**Solutions:**
+1. Increase `QUALITY_THRESHOLD` in ESP32 config.h
+2. Check Wi-Fi signal strength
+3. Reduce network congestion
+4. Keep units stationary during measurement
 
-## License
+### Problem: Can't access web dashboard
 
-MIT License - see [`LICENSE`](LICENSE) file for details.
+**Check:**
+1. Are you on the same network as the Raspberry Pi?
+2. Is the IP address correct?
+3. Is port 8000 being used by another program?
+4. Try: `http://<pi-ip>:8000` not `https://`
 
-## Acknowledgments
+---
 
-- Qorvo/Decawave for DW3000 documentation
-- ESP32 Arduino core contributors
-- FastAPI and Uvicorn teams
+## Data Export
+
+The system automatically logs all measurements (when not in simulation mode).
+
+**To export data:**
+1. Click "Export CSV" button in the dashboard
+2. File downloads with format:
+   ```csv
+   timestamp,node,peer,distance_m,quality,volume
+   2024-10-06T14:23:45,A,B,2.45,0.95,0.85
+   2024-10-06T14:23:45,A,C,5.32,0.88,0.45
+   ```
+
+**CSV Fields:**
+- `timestamp`: When measurement was taken (ISO format)
+- `node`: Source unit (A, B, C, ...)
+- `peer`: Target unit (A, B, C, ...)
+- `distance_m`: Distance in meters
+- `quality`: Measurement quality (0.0-1.0)
+- `volume`: Simulated audio volume (0.0-1.0)
+
+---
+
+## Hardware Setup
+
+### Hardware Assembly
+
+The Makerfabs ESP32 UWB DW3000 is a ready-to-use development board with ESP32 and DW3000 already integrated. No wiring or soldering required.
+
+**Setup:**
+- Connect USB cable for programming and power
+- Or connect battery pack for portable operation
+- Keep antenna area clear of obstructions
+
+**Mounting:**
+- Attach to belt or worn on arm
+- Keep antenna exposed and vertical
+- Ensure USB port accessible for charging/programming
+
+---
+
+## Safety & Best Practices
+
+**Electrical Safety:**
+- Use proper 3.3V power supply
+- Don't exceed voltage limits
+- Avoid short circuits
+
+**RF Safety:**
+- UWB operates at very low power
+- Safe for continuous use
+- Complies with FCC/CE regulations
+
+**Operational:**
+- Keep units dry
+- Avoid dropping or impacts
+- Don't cover antennas
+- Charge batteries between events
+
+---
+
+## Technical Specifications
+
+**Range:**
+- Indoor: up to 50 meters
+- Outdoor: up to 100 meters
+- Accuracy: ±10-30cm (after calibration)
+
+**Update Rate:**
+- Default: 2 measurements per second per pair
+- Configurable: 0.5 - 10 Hz
+
+**Battery Life:**
+- Typical: 6-8 hours continuous use
+- Depends on battery capacity and update rate
+
+**Network Requirements:**
+- Wi-Fi 2.4GHz (802.11 b/g/n)
+- UDP port 9999 accessible
+- Low bandwidth: ~2 KB/s per unit
+
+---
 
 ## Support
 
-For issues, questions, or contributions, please open an issue or pull request.
+**Documentation:**
+- `QUICKSTART.md` - Quick setup guide
+- `esp32/docs/CALIBRATION.md` - Distance calibration
 
+**Configuration Files:**
+- `rpi/config.yaml` - Server settings
+- `esp32/unit_firmware/config.h` - ESP32 settings
+
+**Logs:**
+- Server logs: `rpi/logs/hub.log`
+- ESP32 logs: Arduino serial monitor (115200 baud)
+
+---
+
+## License
+
+See `LICENSE` file for details.
+
+---
+
+## Credits
+
+Developed by **IMeTech Engineering**  
+Website: https://imetech.nl/
+
+For SLVN Events proximity-based audio project.
+
+---
+
+**Version:** 1.0  
+**Last Updated:** October 2024

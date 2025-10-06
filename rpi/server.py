@@ -22,9 +22,12 @@ Usage:
 import asyncio
 import json
 import logging
+import math
+import random
 import socket
 import time
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
@@ -475,7 +478,11 @@ class UDPListener:
             self._append_to_csv(measurement)
     
     def _append_to_csv(self, measurement: DistanceMeasurement):
-        """Append measurement to CSV file"""
+        """Append measurement to CSV file (only real data, not simulation)"""
+        # Skip saving simulation data to CSV
+        if CONFIG['advanced'].get('simulate_units', False):
+            return
+            
         try:
             csv_path = Path(CONFIG['persistence']['csv_export_path'])
             csv_path.parent.mkdir(parents=True, exist_ok=True)
@@ -504,6 +511,136 @@ class UDPListener:
 
 # Global UDP listener
 udp_listener = UDPListener()
+
+# =============================================================================
+# SIMULATION MODE (Pi-only testing)
+# =============================================================================
+
+class SimulationMode:
+    """Generate fake ranging data for testing without ESP32 hardware"""
+    
+    def __init__(self):
+        self.running = False
+        self.start_time = time.time()
+        self._generate_node_config()
+        
+    def _generate_node_config(self):
+        """Generate node configuration based on config settings"""
+        unit_count = CONFIG['advanced'].get('simulation_unit_count', 3)
+        
+        # Generate node IDs (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)
+        self.nodes = [chr(ord('A') + i) for i in range(min(unit_count, 20))]
+        
+        # Generate all possible pairs
+        self.pairs = []
+        for i in range(len(self.nodes)):
+            for j in range(i + 1, len(self.nodes)):
+                self.pairs.append((self.nodes[i], self.nodes[j]))
+        
+        # Generate fixed 2D positions for nodes (for geometrically valid distances)
+        self.node_positions = {}
+        # Place nodes in a circle or grid pattern
+        for i, node in enumerate(self.nodes):
+            if i == 0:
+                # First node at center
+                self.node_positions[node] = (0.0, 0.0)
+            else:
+                # Other nodes in a circle with radius 2-4 meters
+                angle = (2 * math.pi * (i-1)) / max(1, len(self.nodes) - 1)
+                radius = 1.5 + (i * 0.3)  # Increasing radius
+                self.node_positions[node] = (
+                    radius * math.cos(angle),
+                    radius * math.sin(angle)
+                )
+        
+        logger.info(f"Simulation configured for {len(self.nodes)} units: {self.nodes}")
+        logger.info(f"Will generate {len(self.pairs)} pair measurements: {self.pairs}")
+        logger.info(f"Node positions: {self.node_positions}")
+        
+    async def start(self):
+        """Start simulation mode"""
+        if not CONFIG['advanced'].get('simulate_units', False):
+            return
+            
+        logger.info("Starting simulation mode - generating fake ranging data")
+        self.running = True
+        
+        # Generate data periodically
+        while self.running:
+            await self._generate_measurements()
+            await asyncio.sleep(1.0 / CONFIG['advanced'].get('simulation_update_rate_hz', 2))
+    
+    async def _generate_measurements(self):
+        """Generate fake distance measurements with realistic patterns"""
+        current_time = time.time()
+        
+        for node_a, node_b in self.pairs:
+            # Calculate actual Euclidean distance from fixed positions
+            pos_a = self.node_positions[node_a]
+            pos_b = self.node_positions[node_b]
+            
+            dx = pos_b[0] - pos_a[0]
+            dy = pos_b[1] - pos_a[1]
+            true_distance = math.sqrt(dx * dx + dy * dy)
+            
+            # Add smooth small variations (simulating measurement noise and small movements)
+            period = 10.0  # Slow oscillation
+            phase_offset = hash(f"{node_a}-{node_b}") % 100 / 100.0
+            t = (current_time - self.start_time) / period + phase_offset
+            
+            # Small smooth oscillation (±5cm)
+            oscillation = 0.05 * math.sin(2 * math.pi * t)
+            
+            # Small random noise (±2cm)
+            noise = random.uniform(-0.02, 0.02)
+            
+            distance = true_distance + oscillation + noise
+            distance = max(0.1, distance)  # Ensure positive
+            
+            # Generate quality (higher when closer, with some randomness)
+            quality = max(0.3, 1.0 - (distance - 0.5) * 0.15)
+            quality += random.uniform(-0.05, 0.05)  # Small quality noise
+            quality = min(1.0, max(0.1, quality))
+            
+            # Create measurement
+            measurement = DistanceMeasurement(
+                node=node_a,
+                peer=node_b,
+                distance=distance,
+                quality=quality,
+                timestamp=int(current_time),
+                received_at=current_time
+            )
+            
+            # Update global state
+            state.update_measurement(measurement)
+            
+        logger.debug(f"Generated {len(self.pairs)} simulated measurements")
+    
+    def _get_base_distance(self, node_a, node_b):
+        """Get base distance for a pair (simulates different unit relationships)"""
+        # Create some realistic distance patterns
+        # Some pairs are closer, some are farther
+        
+        # Use hash to create consistent but varied distances
+        hash_val = hash(f"{node_a}-{node_b}") % 1000
+        
+        if hash_val < 200:  # 20% chance - very close
+            return 0.5 + random.uniform(0, 0.5)
+        elif hash_val < 500:  # 30% chance - close
+            return 1.0 + random.uniform(0, 1.0)
+        elif hash_val < 800:  # 30% chance - medium
+            return 2.0 + random.uniform(0, 1.5)
+        else:  # 20% chance - far
+            return 3.5 + random.uniform(0, 2.0)
+    
+    def stop(self):
+        """Stop simulation mode"""
+        self.running = False
+        logger.info("Simulation mode stopped")
+
+# Global simulation instance
+simulation = SimulationMode()
 
 # =============================================================================
 # WEBSOCKET MANAGER
@@ -572,13 +709,54 @@ class WebSocketManager:
 ws_manager = WebSocketManager()
 
 # =============================================================================
+# LIFECYCLE EVENTS
+# =============================================================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    # Startup
+    logger.info("=" * 60)
+    logger.info("UWB Proximity Chat Hub Starting")
+    logger.info("=" * 60)
+    logger.info(f"Configuration loaded: {len(CONFIG)} sections")
+    logger.info(f"UDP port: {CONFIG['network']['udp_listen_port']}")
+    logger.info(f"HTTP/WS port: {CONFIG['network']['rest_port']}")
+    logger.info(f"Volume model: {CONFIG['volume_model']['curve_type']}")
+    logger.info("=" * 60)
+    
+    # Create data/logs directories
+    Path("./data").mkdir(exist_ok=True)
+    Path("./logs").mkdir(exist_ok=True)
+    
+    # Start UDP listener
+    asyncio.create_task(udp_listener.start())
+    
+    # Start simulation mode if enabled
+    asyncio.create_task(simulation.start())
+    
+    # Start WebSocket broadcaster
+    asyncio.create_task(ws_manager.start_broadcasting())
+    
+    logger.info("Hub is ready!")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down hub...")
+    udp_listener.stop()
+    simulation.stop()
+    logger.info("Hub stopped")
+
+# =============================================================================
 # FASTAPI APPLICATION
 # =============================================================================
 
 app = FastAPI(
     title="UWB Proximity Chat Hub",
     description="Backend server for UWB-based proximity chat system",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 # CORS middleware
@@ -629,14 +807,28 @@ async def api_export():
     """Export data as CSV"""
     try:
         csv_path = Path(CONFIG['persistence']['csv_export_path'])
+        
+        # If CSV file exists, return it
         if csv_path.exists():
             return FileResponse(
                 csv_path,
                 media_type='text/csv',
                 filename=f'ranging_data_{int(time.time())}.csv'
             )
-        else:
-            raise HTTPException(status_code=404, detail="No data to export")
+        
+        # If no CSV file exists, return empty CSV with headers only
+        # This allows users to download template even without data
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(csv_path, 'w') as f:
+            f.write('timestamp,node,peer,distance_m,quality,volume\n')
+        
+        return FileResponse(
+            csv_path,
+            media_type='text/csv',
+            filename=f'ranging_data_{int(time.time())}.csv'
+        )
+            
     except Exception as e:
         logger.error(f"Export error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -660,45 +852,95 @@ async def api_config():
     """Get current configuration"""
     return JSONResponse(CONFIG)
 
+@app.post("/api/simulation/toggle")
+async def toggle_simulation():
+    """Toggle simulation mode on/off"""
+    current_state = CONFIG['advanced'].get('simulate_units', False)
+    new_state = not current_state
+    
+    # Update configuration
+    CONFIG['advanced']['simulate_units'] = new_state
+    
+    # Handle simulation state change
+    if new_state:
+        logger.info("Simulation mode enabled")
+        # Stop existing simulation if running
+        if simulation.running:
+            simulation.stop()
+        # Start new simulation task
+        asyncio.create_task(simulation.start())
+    else:
+        logger.info("Simulation mode disabled")
+        simulation.stop()
+    
+    return JSONResponse({
+        'simulation_enabled': new_state,
+        'message': f'Simulation {"enabled" if new_state else "disabled"}'
+    })
+
+@app.get("/api/simulation/status")
+async def get_simulation_status():
+    """Get current simulation status"""
+    return JSONResponse({
+        'simulation_enabled': CONFIG['advanced'].get('simulate_units', False),
+        'simulation_running': simulation.running,
+        'unit_count': CONFIG['advanced'].get('simulation_unit_count', 3),
+        'update_rate': CONFIG['advanced'].get('simulation_update_rate_hz', 2)
+    })
+
+@app.post("/api/simulation/node-count")
+async def update_node_count(request: dict):
+    """Update the number of simulated nodes"""
+    try:
+        # Get node count from request body
+        data = await request.json() if hasattr(request, 'json') else request
+        node_count = int(data.get('node_count', 5))
+        
+        # Validate node count
+        if node_count < 2 or node_count > 20:
+            return JSONResponse({
+                'success': False,
+                'message': 'Node count must be between 2 and 20'
+            }, status_code=400)
+        
+        # Update configuration
+        CONFIG['advanced']['simulation_unit_count'] = node_count
+        
+        # Clear old state data first
+        state.nodes.clear()
+        state.pairs.clear()
+        
+        # Restart simulation if it's running
+        if simulation.running:
+            simulation.stop()
+            # Wait a moment for cleanup
+            await asyncio.sleep(0.1)
+            # Reinitialize with new node count
+            simulation._generate_node_config()
+            asyncio.create_task(simulation.start())
+            logger.info(f"Simulation restarted with {node_count} nodes")
+        else:
+            # Just update the config for next time
+            simulation._generate_node_config()
+            logger.info(f"Simulation node count updated to {node_count}")
+        
+        return JSONResponse({
+            'success': True,
+            'node_count': node_count,
+            'message': f'Node count updated to {node_count}'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating node count: {e}")
+        return JSONResponse({
+            'success': False,
+            'message': str(e)
+        }, status_code=500)
+
 # Mount static files
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-
-# =============================================================================
-# LIFECYCLE EVENTS
-# =============================================================================
-
-@app.on_event("startup")
-async def startup_event():
-    """Run on server startup"""
-    logger.info("=" * 60)
-    logger.info("UWB Proximity Chat Hub Starting")
-    logger.info("=" * 60)
-    logger.info(f"Configuration loaded: {len(CONFIG)} sections")
-    logger.info(f"UDP port: {CONFIG['network']['udp_listen_port']}")
-    logger.info(f"HTTP/WS port: {CONFIG['network']['rest_port']}")
-    logger.info(f"Volume model: {CONFIG['volume_model']['curve_type']}")
-    logger.info("=" * 60)
-    
-    # Create data/logs directories
-    Path("./data").mkdir(exist_ok=True)
-    Path("./logs").mkdir(exist_ok=True)
-    
-    # Start UDP listener
-    asyncio.create_task(udp_listener.start())
-    
-    # Start WebSocket broadcaster
-    asyncio.create_task(ws_manager.start_broadcasting())
-    
-    logger.info("Hub is ready!")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Run on server shutdown"""
-    logger.info("Shutting down hub...")
-    udp_listener.stop()
-    logger.info("Hub stopped")
 
 # =============================================================================
 # MAIN ENTRY POINT

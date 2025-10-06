@@ -16,6 +16,7 @@
                 <span id="connection-status" class="status-badge disconnected">Disconnected</span>
                 <span id="node-count" class="status-badge">Nodes: 0</span>
                 <span id="update-rate" class="status-badge">Update: --</span>
+                <span id="data-source-badge" class="status-badge">Data: Simulation</span>
             </div>
         </div>
     </header>
@@ -24,7 +25,31 @@
     <main class="container">
         <!-- Network Visualization -->
         <section class="panel">
-            <h2>Network Graph</h2>
+            <div class="panel-header">
+                <h2>Network Graph</h2>
+                <div class="graph-controls">
+                    <!-- Simulation Control -->
+                    <div class="control-inline">
+                        <button id="btn-toggle-simulation" class="btn btn-primary btn-sm">
+                            <span id="simulation-status">Simulation: ON</span>
+                        </button>
+                    </div>
+                    <!-- Node Count Control -->
+                    <div class="control-inline">
+                        <label for="node-count-select" class="control-label-inline">Nodes:</label>
+                        <select id="node-count-select" class="control-select-sm">
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5" selected>5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
             <div id="network-graph" class="graph-container">
                 <div class="graph-placeholder">
                     <p>Waiting for data from units...</p>
@@ -142,7 +167,8 @@
     <!-- Footer -->
     <footer>
         <div class="container">
-            <p>&copy; 2025 UWB Proximity Chat POC | <a href="https://github.com" target="_blank">GitHub</a> | 
+            <p>&copy; 2025 UWB Proximity Chat System | 
+               Developed by <a href="https://imetech.nl/" target="_blank" rel="noopener">IMeTech Engineering</a> | 
                <a href="/api/stats" target="_blank">API Stats</a> | 
                <a href="/api/snapshot" target="_blank">Live Data</a>
             </p>
