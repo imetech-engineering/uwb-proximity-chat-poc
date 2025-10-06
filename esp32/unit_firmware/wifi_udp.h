@@ -34,7 +34,7 @@ static int g_wifiReconnectCount = 0;
  * Initialize Wi-Fi in station mode
  * @return true if connected successfully
  */
-bool wifi_init() {
+inline bool wifi_init() {
     LOG_INFO("Connecting to Wi-Fi: %s", WIFI_SSID);
     
     // Set Wi-Fi mode to station (client)
@@ -76,7 +76,7 @@ bool wifi_init() {
  * Check if Wi-Fi is connected
  * @return true if connected
  */
-bool wifi_is_connected() {
+inline bool wifi_is_connected() {
     return (WiFi.status() == WL_CONNECTED);
 }
 
@@ -84,7 +84,7 @@ bool wifi_is_connected() {
  * Monitor Wi-Fi connection and attempt reconnection if needed
  * Call this periodically from main loop
  */
-void wifi_monitor() {
+inline void wifi_monitor() {
     unsigned long now = millis();
     
     // Check connection status periodically
@@ -119,14 +119,14 @@ void wifi_monitor() {
  * Get Wi-Fi signal strength
  * @return RSSI in dBm
  */
-int wifi_get_rssi() {
+inline int wifi_get_rssi() {
     return WiFi.RSSI();
 }
 
 /**
  * Print Wi-Fi status information
  */
-void wifi_print_status() {
+inline void wifi_print_status() {
     if (wifi_is_connected()) {
         LOG_INFO("Wi-Fi: Connected");
         LOG_INFO("  SSID: %s", WiFi.SSID().c_str());
@@ -146,7 +146,7 @@ void wifi_print_status() {
  * Initialize UDP client
  * @return true if successful
  */
-bool udp_init() {
+inline bool udp_init() {
     // UDP doesn't require explicit "connection" like TCP
     // Just log that we're ready
     LOG_INFO("UDP client initialized (hub: %s:%d)", HUB_UDP_IP, HUB_UDP_PORT);
@@ -159,7 +159,7 @@ bool udp_init() {
  * @param length Length of data in bytes
  * @return true if sent successfully
  */
-bool udp_send(const char* data, size_t length) {
+inline bool udp_send(const char* data, size_t length) {
     if (!wifi_is_connected()) {
         LOG_WARN("Cannot send UDP: Wi-Fi not connected");
         return false;
@@ -205,7 +205,7 @@ bool udp_send(const char* data, size_t length) {
  * @param quality Quality metric (0.0-1.0)
  * @return true if sent successfully
  */
-bool udp_send_distance(char node, char peer, float distance, float quality) {
+inline bool udp_send_distance(char node, char peer, float distance, float quality) {
     // Build JSON message
     char jsonBuffer[JSON_MAX_SIZE];
     buildDistanceJSON(node, peer, distance, quality, jsonBuffer, sizeof(jsonBuffer));
@@ -224,7 +224,7 @@ bool udp_send_distance(char node, char peer, float distance, float quality) {
  * Send heartbeat/keepalive message to hub
  * @return true if sent successfully
  */
-bool udp_send_heartbeat() {
+inline bool udp_send_heartbeat() {
     char jsonBuffer[JSON_MAX_SIZE];
     snprintf(jsonBuffer, sizeof(jsonBuffer),
              "{\"node\":\"%c\",\"type\":\"heartbeat\",\"ts\":%lu,\"rssi\":%d}",
@@ -238,7 +238,7 @@ bool udp_send_heartbeat() {
  * @param message Error or status message
  * @return true if sent successfully
  */
-bool udp_send_status(const char* message) {
+inline bool udp_send_status(const char* message) {
     char jsonBuffer[JSON_MAX_SIZE];
     snprintf(jsonBuffer, sizeof(jsonBuffer),
              "{\"node\":\"%c\",\"type\":\"status\",\"msg\":\"%s\",\"ts\":%lu}",
@@ -255,7 +255,7 @@ bool udp_send_status(const char* message) {
  * Perform network diagnostics
  * Tests connectivity to hub and reports results
  */
-void network_diagnostics() {
+inline void network_diagnostics() {
     LOG_INFO("Running network diagnostics...");
     
     // Check Wi-Fi
@@ -302,7 +302,7 @@ struct NetworkStats {
     int reconnectCount;
 };
 
-NetworkStats network_get_stats() {
+inline NetworkStats network_get_stats() {
     NetworkStats stats;
     stats.connected = wifi_is_connected();
     stats.rssi = wifi_get_rssi();
@@ -314,7 +314,7 @@ NetworkStats network_get_stats() {
 /**
  * Print network statistics
  */
-void network_print_stats() {
+inline void network_print_stats() {
     NetworkStats stats = network_get_stats();
     LOG_INFO("Network Stats:");
     LOG_INFO("  Connected: %s", stats.connected ? "Yes" : "No");

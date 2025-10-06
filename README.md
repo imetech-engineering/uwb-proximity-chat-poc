@@ -225,8 +225,9 @@ You need to flash firmware onto each ESP32 board. You'll do this once per board,
 **Install Required Libraries:**
 1. Go to `Tools` → `Manage Libraries`
 2. Search and install:
-   - `DW3000` by Makerfabs
    - `ArduinoJson` by Benoit Blanchon
+
+**Note:** This firmware uses a custom DW3000 driver implementation, so you don't need to install a separate DW3000 library.
 
 #### 2.2 Configure and Flash Each ESP32
 
@@ -235,7 +236,8 @@ You need to flash firmware onto each ESP32 board. You'll do this once per board,
 1. **Open the firmware:**
    - In Arduino IDE, go to `File` → `Open`
    - Navigate to `uwb-proximity-chat-poc/esp32/unit_firmware/`
-   - Open `main.cpp`
+   - Open `unit_firmware.ino`
+   - Arduino IDE will open the sketch with all files (`main.cpp`, `config.h`, `dw3000_driver.h`, `utils.h`, `wifi_udp.h`) visible as tabs
 
 2. **Edit the configuration:**
    - Open the file `config.h` (should appear as a tab in Arduino IDE)

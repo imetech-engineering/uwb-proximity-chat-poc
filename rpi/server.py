@@ -151,6 +151,33 @@ class DistanceMeasurement:
         return asdict(self)
 
 @dataclass
+class NodeStatus:
+    """Status information for a single node"""
+    node_id: str
+    last_seen: float
+    rssi: Optional[int] = None
+    ip_address: Optional[str] = None
+    heartbeat_count: int = 0
+    
+    def is_online(self, timeout: float = 10.0) -> bool:
+        """Check if node is considered online"""
+        return (time.time() - self.last_seen) < timeout
+    
+    def time_since_seen(self) -> float:
+        """Get time since last seen in seconds"""
+        return time.time() - self.last_seen
+    
+    def to_dict(self) -> dict:
+        return {
+            'node': self.node_id,
+            'online': self.is_online(),
+            'last_seen': round(self.time_since_seen(), 1),
+            'rssi': self.rssi,
+            'ip': self.ip_address,
+            'heartbeats': self.heartbeat_count
+        }
+
+@dataclass
 class PairState:
     """State of a unit pair (bidirectional edge in graph)"""
     node_a: str
@@ -180,10 +207,39 @@ class SystemState:
     def __init__(self):
         self.pairs: Dict[Tuple[str, str], PairState] = {}
         self.nodes: Set[str] = set()
+        self.node_status: Dict[str, NodeStatus] = {}  # Track node status
         self.measurements_received = 0
         self.last_measurement_time = 0
         self.start_time = time.time()
         
+    def update_heartbeat(self, node_id: str, rssi: Optional[int] = None, ip_address: Optional[str] = None):
+        """Update node status from heartbeat packet"""
+        now = time.time()
+        
+        if node_id in self.node_status:
+            # Update existing node status
+            status = self.node_status[node_id]
+            status.last_seen = now
+            status.heartbeat_count += 1
+            if rssi is not None:
+                status.rssi = rssi
+            if ip_address is not None:
+                status.ip_address = ip_address
+        else:
+            # Create new node status
+            self.node_status[node_id] = NodeStatus(
+                node_id=node_id,
+                last_seen=now,
+                rssi=rssi,
+                ip_address=ip_address,
+                heartbeat_count=1
+            )
+        
+        # Also track in nodes set
+        self.nodes.add(node_id)
+        
+        logger.debug(f"Heartbeat from node {node_id}, RSSI: {rssi}, IP: {ip_address}")
+    
     def update_measurement(self, measurement: DistanceMeasurement):
         """Update state with new measurement"""
         # Normalize pair order (A-B same as B-A)
@@ -221,9 +277,22 @@ class SystemState:
             if not pair.is_stale(stale_timeout)
         ]
         
+        # Only show nodes that have active pairs
+        active_nodes = set()
+        for pair in active_pairs:
+            active_nodes.add(pair['a'])
+            active_nodes.add(pair['b'])
+        
+        # Get node status for all known nodes
+        node_status_list = [
+            status.to_dict() 
+            for status in self.node_status.values()
+        ]
+        
         return {
-            'nodes': sorted(list(self.nodes)),
+            'nodes': sorted(list(active_nodes)),
             'pairs': active_pairs,
+            'node_status': node_status_list,  # Include detailed node status
             'config': {
                 'near_m': CONFIG['volume_model']['near_distance_m'],
                 'far_m': CONFIG['volume_model']['far_distance_m'],
@@ -402,6 +471,32 @@ class UDPListener:
     
     def _validate_packet(self, packet: dict) -> bool:
         """Validate packet structure"""
+        packet_type = packet.get('type')
+        
+        # Handle heartbeat packets
+        if packet_type == 'heartbeat':
+            # Heartbeat packets only need 'node' and 'type'
+            try:
+                node = str(packet.get('node', ''))
+                if len(node) != 1:
+                    return False
+                return True
+            except (ValueError, TypeError):
+                return False
+        
+        # Handle status packets (diagnostics, startup, etc.)
+        if packet_type == 'status':
+            # Status packets need 'node', 'type', and 'msg'
+            try:
+                node = str(packet.get('node', ''))
+                msg = str(packet.get('msg', ''))
+                if len(node) != 1 or not msg:
+                    return False
+                return True
+            except (ValueError, TypeError):
+                return False
+        
+        # For ranging packets, check standard fields
         required_fields = ['node', 'peer', 'distance', 'quality']
         
         # Check required fields
@@ -433,7 +528,12 @@ class UDPListener:
         if not CONFIG['advanced']['deduplicate_packets']:
             return False
         
-        # Create packet signature
+        # Skip duplicate checking for heartbeat and status packets
+        packet_type = packet.get('type')
+        if packet_type in ('heartbeat', 'status'):
+            return False
+        
+        # Create packet signature for ranging packets
         sig = f"{packet['node']}-{packet['peer']}-{packet['distance']:.2f}"
         
         now = time.time()
@@ -457,7 +557,34 @@ class UDPListener:
         return False
     
     def _process_packet(self, packet: dict, addr: tuple):
-        """Process valid measurement packet"""
+        """Process valid packet (measurement, heartbeat, or status)"""
+        packet_type = packet.get('type')
+        
+        # Handle heartbeat packets
+        if packet_type == 'heartbeat':
+            node_id = packet['node']
+            rssi = packet.get('rssi')
+            ip_address = addr[0]  # Get IP from UDP address
+            
+            logger.debug(f"Heartbeat from node {node_id} at {ip_address}, RSSI: {rssi}")
+            
+            # Update node status in global state
+            state.update_heartbeat(node_id, rssi, ip_address)
+            return
+        
+        # Handle status packets (diagnostics, startup, etc.)
+        if packet_type == 'status':
+            node_id = packet['node']
+            msg = packet.get('msg', 'unknown')
+            ip_address = addr[0]
+            
+            logger.info(f"Status from node {node_id} at {ip_address}: {msg}")
+            
+            # Update node status to mark it as seen
+            state.update_heartbeat(node_id, None, ip_address)
+            return
+        
+        # Handle ranging measurement packets
         measurement = DistanceMeasurement(
             node=packet['node'],
             peer=packet['peer'],
@@ -469,6 +596,10 @@ class UDPListener:
         
         logger.debug(f"Received: {measurement.node}->{measurement.peer} "
                     f"{measurement.distance:.2f}m (Q={measurement.quality:.2f}) from {addr[0]}")
+        
+        # Update node status for the sending node (from ranging packet too)
+        ip_address = addr[0]
+        state.update_heartbeat(measurement.node, None, ip_address)
         
         # Update global state
         state.update_measurement(measurement)
@@ -867,11 +998,18 @@ async def toggle_simulation():
         # Stop existing simulation if running
         if simulation.running:
             simulation.stop()
+        # Clear old state data before starting new simulation
+        state.nodes.clear()
+        state.pairs.clear()
         # Start new simulation task
         asyncio.create_task(simulation.start())
     else:
         logger.info("Simulation mode disabled")
         simulation.stop()
+        # Clear state when simulation is disabled
+        state.nodes.clear()
+        state.pairs.clear()
+        logger.info("State cleared - all nodes and pairs removed")
     
     return JSONResponse({
         'simulation_enabled': new_state,

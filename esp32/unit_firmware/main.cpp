@@ -32,7 +32,7 @@
 // =============================================================================
 
 // Performance statistics
-struct SystemStats {
+static struct SystemStats {
     unsigned long loopCount;
     unsigned long rangingAttempts;
     unsigned long rangingSuccesses;
@@ -43,15 +43,15 @@ struct SystemStats {
 } g_stats = {0};
 
 // Timing variables
-unsigned long g_lastHeartbeat = 0;
-unsigned long g_lastStatsReport = 0;
-unsigned long g_lastMemCheck = 0;
+static unsigned long g_lastHeartbeat = 0;
+static unsigned long g_lastStatsReport = 0;
+static unsigned long g_lastMemCheck = 0;
 
 // Current peer index for ranging
-int g_currentPeerIdx = 0;
+static int g_currentPeerIdx = 0;
 
 // Loop timing measurement
-RunningAverage<100> g_loopTimeAvg;
+static RunningAverage<100> g_loopTimeAvg;
 
 // =============================================================================
 // SETUP - Initialize Hardware and Network
@@ -110,18 +110,17 @@ void setup() {
     
     // Initialize UWB module
     LOG_INFO("");
-    LOG_INFO("Initializing UWB module...");
     if (!uwb_init()) {
-        LOG_ERROR("UWB initialization failed!");
-        
 #if !ENABLE_SIMULATION
-        LOG_ERROR("Check DW3000 wiring (see docs/WIRING.md)");
+        LOG_ERROR("========================================");
+        LOG_ERROR("  HARDWARE INITIALIZATION FAILED");
+        LOG_ERROR("========================================");
         blinkLED(10, 100, 100);  // Error indication
-        
-        // Could enter error state or retry
-        // For POC, continue (will retry in loop)
+        LOG_ERROR("System will continue in limited mode");
+        LOG_ERROR("Ranging will not be available");
+        LOG_ERROR("");
 #else
-        LOG_WARN("Continuing in simulation mode");
+        LOG_WARN("Simulation mode initialization issue");
 #endif
     }
     
@@ -181,6 +180,8 @@ void loop() {
     
     // Check if it's our time slot
     if (isMyTimeSlot()) {
+        // OUR TIME SLOT: Act as initiator and range with peers
+        
         // Determine which peer to range with
         char peerID = PEER_IDS[g_currentPeerIdx];
         
@@ -229,8 +230,10 @@ void loop() {
         delay(RANGING_INTERVAL_MS);
         
     } else {
-        // Not our time slot, wait briefly
-        delay(50);
+        // NOT OUR TIME SLOT: Act as responder - listen for other units ranging with us
+        // This allows other units to measure distance to us
+        uwb_respond(50);  // Listen for 50ms
+        delay(10);
     }
     
     // -------------------------------------------------------------------------
@@ -323,7 +326,7 @@ void loop() {
  * Error handler - called when critical error occurs
  * @param message Error message
  */
-void handleError(const char* message) {
+inline void handleError(const char* message) {
     LOG_ERROR("CRITICAL ERROR: %s", message);
     
     // Send error to hub
@@ -339,7 +342,7 @@ void handleError(const char* message) {
 /**
  * Reset system statistics
  */
-void resetStats() {
+inline void resetStats() {
     memset(&g_stats, 0, sizeof(g_stats));
     g_loopTimeAvg.reset();
     LOG_INFO("Statistics reset");

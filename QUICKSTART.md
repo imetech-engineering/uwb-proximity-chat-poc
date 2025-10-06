@@ -74,14 +74,15 @@ Raspberry Pi is ready.
 
 ### Step 2: ESP32 Configuration (3 minutes per unit)
 
-**A. Open the configuration file**
+**A. Open the firmware in Arduino IDE**
 
-Navigate to:
-```
-esp32/unit_firmware/config.h
-```
+1. Open Arduino IDE
+2. Go to `File` → `Open`
+3. Navigate to `esp32/unit_firmware/`
+4. Open `unit_firmware.ino`
+5. Arduino IDE will open the sketch with all files (`main.cpp`, `config.h`, `dw3000_driver.h`, `utils.h`, `wifi_udp.h`) visible as tabs
 
-**B. Change these THREE settings:**
+**B. Change these FOUR settings in config.h:**
 
 ```cpp
 // 1. UNIT ID - Must be unique for each ESP32!

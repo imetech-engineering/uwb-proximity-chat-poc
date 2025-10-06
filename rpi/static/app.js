@@ -31,7 +31,9 @@ const AppState = {
     },
     // Simulation state
     simulationEnabled: false,
-    dataSource: 'real'
+    dataSource: 'real',
+    // Node status
+    nodeStatus: []
 };
 
 // =============================================================================
@@ -156,6 +158,7 @@ function updateUI(data) {
     updateConfiguration(data.config);
     updateStatistics(data.stats);
     updateUpdateRate();
+    updateNodeStatusData(data.node_status);
 }
 
 
@@ -444,6 +447,248 @@ function updateStatistics(stats) {
         stats.uptime_s ? formatUptime(stats.uptime_s) : '--';
 }
 
+/**
+ * Update node status data (store for modal)
+ */
+function updateNodeStatusData(nodeStatus) {
+    // Store the latest node status data
+    AppState.nodeStatus = nodeStatus || [];
+    
+    // If modal is open, refresh it
+    const modal = document.getElementById('node-status-modal');
+    if (modal && modal.style.display !== 'none') {
+        populateNodeStatusModal();
+    }
+}
+
+// =============================================================================
+// NODE STATUS MODAL
+// =============================================================================
+
+/**
+ * Open node status modal
+ */
+function openNodeStatusModal() {
+    const modal = document.getElementById('node-status-modal');
+    modal.style.display = 'flex';
+    populateNodeStatusModal();
+    
+    // Close on overlay click
+    const overlay = modal.querySelector('.modal-overlay');
+    overlay.onclick = closeNodeStatusModal;
+    
+    // Close on Escape key
+    document.addEventListener('keydown', handleModalEscape);
+}
+
+/**
+ * Close node status modal
+ */
+function closeNodeStatusModal() {
+    const modal = document.getElementById('node-status-modal');
+    modal.style.display = 'none';
+    document.removeEventListener('keydown', handleModalEscape);
+}
+
+/**
+ * Handle Escape key to close modal
+ */
+function handleModalEscape(event) {
+    if (event.key === 'Escape') {
+        closeNodeStatusModal();
+    }
+}
+
+/**
+ * Populate node status modal with data
+ */
+function populateNodeStatusModal() {
+    const container = document.getElementById('node-status-content');
+    const nodeStatus = AppState.nodeStatus || [];
+    
+    if (!nodeStatus || nodeStatus.length === 0) {
+        container.innerHTML = `
+            <div class="no-nodes-message">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <p>No nodes detected yet</p>
+                <p class="help-text">Waiting for ESP32 units to connect...</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort nodes by ID
+    const sortedNodes = [...nodeStatus].sort((a, b) => a.node.localeCompare(b.node));
+    
+    // Create cards
+    container.innerHTML = '';
+    container.className = 'node-status-grid';
+    
+    sortedNodes.forEach(node => {
+        const card = createNodeStatusCard(node);
+        container.appendChild(card);
+    });
+}
+
+/**
+ * Create a node status card element
+ */
+function createNodeStatusCard(node) {
+    const card = document.createElement('div');
+    card.className = `node-status-card ${node.online ? 'online' : 'offline'}`;
+    
+    // Header with node ID and status
+    const header = document.createElement('div');
+    header.className = 'node-status-header';
+    
+    const nodeId = document.createElement('div');
+    nodeId.className = 'node-id';
+    nodeId.innerHTML = `
+        <div class="node-id-circle">${node.node}</div>
+        <span>Node ${node.node}</span>
+    `;
+    
+    const statusBadge = document.createElement('div');
+    statusBadge.className = `node-online-badge ${node.online ? 'online' : 'offline'}`;
+    statusBadge.innerHTML = `
+        <div class="${node.online ? 'online-indicator' : 'offline-indicator'}"></div>
+        ${node.online ? 'Online' : 'Offline'}
+    `;
+    
+    header.appendChild(nodeId);
+    header.appendChild(statusBadge);
+    card.appendChild(header);
+    
+    // Details
+    const details = document.createElement('div');
+    details.className = 'node-status-details';
+    
+    // Last seen
+    const lastSeen = createStatusItem(
+        '🕒 Last Seen',
+        node.last_seen < 1 ? 'Just now' : `${node.last_seen.toFixed(1)}s ago`
+    );
+    details.appendChild(lastSeen);
+    
+    // IP Address
+    if (node.ip) {
+        const ipItem = createStatusItem('🌐 IP Address', node.ip);
+        details.appendChild(ipItem);
+    }
+    
+    // RSSI
+    if (node.rssi !== null && node.rssi !== undefined) {
+        const rssiItem = createStatusItemWithBar('📶 Signal', `${node.rssi} dBm`, node.rssi);
+        details.appendChild(rssiItem);
+    }
+    
+    // Heartbeat count
+    if (node.heartbeats) {
+        const hbItem = createStatusItem('💓 Heartbeats', node.heartbeats.toString());
+        details.appendChild(hbItem);
+    }
+    
+    card.appendChild(details);
+    
+    return card;
+}
+
+/**
+ * Create a status item element
+ */
+function createStatusItem(label, value) {
+    const item = document.createElement('div');
+    item.className = 'node-status-item';
+    
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'node-status-label';
+    labelSpan.textContent = label;
+    
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'node-status-value';
+    valueSpan.textContent = value;
+    
+    item.appendChild(labelSpan);
+    item.appendChild(valueSpan);
+    
+    return item;
+}
+
+/**
+ * Create a status item with signal bar
+ */
+function createStatusItemWithBar(label, value, rssi) {
+    const item = document.createElement('div');
+    item.className = 'node-status-item';
+    
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'node-status-label';
+    labelSpan.textContent = label;
+    
+    const rightSide = document.createElement('div');
+    rightSide.style.display = 'flex';
+    rightSide.style.alignItems = 'center';
+    rightSide.style.gap = '0.5rem';
+    
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'node-status-value';
+    valueSpan.textContent = value;
+    valueSpan.style.fontSize = 'var(--font-size-sm)';
+    
+    const rssiBar = createRSSIBar(rssi);
+    
+    rightSide.appendChild(valueSpan);
+    rightSide.appendChild(rssiBar);
+    
+    item.appendChild(labelSpan);
+    item.appendChild(rightSide);
+    
+    return item;
+}
+
+/**
+ * Create RSSI signal strength bar
+ */
+function createRSSIBar(rssi) {
+    const container = document.createElement('div');
+    container.className = 'rssi-bar';
+    
+    const fill = document.createElement('div');
+    fill.className = 'rssi-bar-fill';
+    
+    // Calculate percentage and color based on RSSI
+    // Typical WiFi RSSI: -30 (excellent) to -90 (poor)
+    let percentage = 0;
+    let colorClass = 'rssi-poor';
+    
+    if (rssi >= -50) {
+        percentage = 100;
+        colorClass = 'rssi-excellent';
+    } else if (rssi >= -60) {
+        percentage = 75;
+        colorClass = 'rssi-good';
+    } else if (rssi >= -70) {
+        percentage = 50;
+        colorClass = 'rssi-fair';
+    } else if (rssi >= -80) {
+        percentage = 25;
+        colorClass = 'rssi-poor';
+    } else {
+        percentage = 10;
+        colorClass = 'rssi-poor';
+    }
+    
+    fill.style.width = `${percentage}%`;
+    fill.className = `rssi-bar-fill ${colorClass}`;
+    
+    container.appendChild(fill);
+    return container;
+}
+
 // =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
@@ -718,6 +963,8 @@ async function init() {
     document.getElementById('btn-clear').addEventListener('click', clearDisplay);
     document.getElementById('btn-toggle-dev').addEventListener('click', toggleDevInfo);
     document.getElementById('btn-toggle-simulation').addEventListener('click', toggleSimulation);
+    document.getElementById('btn-node-status').addEventListener('click', openNodeStatusModal);
+    document.getElementById('close-node-status').addEventListener('click', closeNodeStatusModal);
     
     // Setup control handlers
     document.getElementById('node-count-select').addEventListener('change', changeNodeCount);

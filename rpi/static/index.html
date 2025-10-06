@@ -128,6 +128,13 @@
         <section class="panel">
             <h3>Actions</h3>
             <div class="button-group">
+                <button id="btn-node-status" class="btn btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    Node Status
+                </button>
                 <button id="btn-export" class="btn btn-primary">Export CSV</button>
                 <button id="btn-refresh" class="btn btn-secondary">Refresh</button>
                 <button id="btn-clear" class="btn btn-secondary">Clear Display</button>
@@ -174,6 +181,41 @@
             </p>
         </div>
     </footer>
+
+    <!-- Node Status Modal -->
+    <div id="node-status-modal" class="modal" style="display: none;">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 8px;">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    Node Status
+                </h2>
+                <button id="close-node-status" class="modal-close" title="Close">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="node-status-content" class="node-status-grid">
+                    <div class="no-nodes-message">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <p>No nodes detected yet</p>
+                        <p class="help-text">Waiting for ESP32 units to connect...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Load JavaScript -->
     <script src="/static/app.js"></script>

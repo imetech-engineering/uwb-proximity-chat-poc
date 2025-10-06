@@ -16,8 +16,8 @@
 // =============================================================================
 
 // Wi-Fi Credentials (2.4GHz only - ESP32 doesn't support 5GHz)
-#define WIFI_SSID        "YourWiFiNetwork"     // Change to your network SSID
-#define WIFI_PASS        "YourWiFiPassword"    // Change to your network password
+#define WIFI_SSID        "YourWiFiNetwork"     // Change to your network SSID 
+#define WIFI_PASS        "YourWiFiPassword"    // Change to your network password 
 
 // Hub (Raspberry Pi) Configuration
 #define HUB_UDP_IP       "192.168.1.100"       // IP address of Raspberry Pi hub

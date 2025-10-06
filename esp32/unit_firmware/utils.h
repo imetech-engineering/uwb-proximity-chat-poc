@@ -200,17 +200,6 @@ inline T clamp(T value, T minVal, T maxVal) {
 }
 
 /**
- * Linear interpolation
- * @param a Start value
- * @param b End value
- * @param t Interpolation factor (0.0-1.0)
- * @return Interpolated value
- */
-inline float lerp(float a, float b, float t) {
-    return a + (b - a) * clamp(t, 0.0f, 1.0f);
-}
-
-/**
  * Map a value from one range to another
  * @param value Input value
  * @param inMin Input range minimum
@@ -220,8 +209,9 @@ inline float lerp(float a, float b, float t) {
  * @return Mapped value
  */
 inline float mapRange(float value, float inMin, float inMax, float outMin, float outMax) {
-    float t = (value - inMin) / (inMax - inMin);
-    return lerp(outMin, outMax, t);
+    float t = clamp((value - inMin) / (inMax - inMin), 0.0f, 1.0f);
+    // Use standard library lerp (C++20)
+    return std::lerp(outMin, outMax, t);
 }
 
 /**
