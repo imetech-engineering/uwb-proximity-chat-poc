@@ -30,8 +30,8 @@ const AppState = {
         stats: {}
     },
     // Simulation state
-    simulationEnabled: true,
-    dataSource: 'simulation'
+    simulationEnabled: false,
+    dataSource: 'real'
 };
 
 // =============================================================================
@@ -389,9 +389,6 @@ function updateNetworkGraph(nodes, pairs) {
         svg.appendChild(text);
     });
     
-    // Add scale indicator
-    addScaleIndicator(svg, nodePositions);
-    
     graphContainer.appendChild(svg);
 }
 
@@ -417,79 +414,6 @@ function calculateStablePositions(nodes, pairs) {
     });
     
     return positions;
-}/**
- * Add scale indicator to show distance reference
- */
-function addScaleIndicator(svg, nodePositions) {
-    const PIXELS_PER_METER = 60; // Base scale
-
-    // Position scale indicator in bottom-left corner
-    const scaleX = 20;
-    const scaleY = 470;
-    const scaleLength = PIXELS_PER_METER; // Base scale length
-    
-    // Background box for scale
-    const scaleBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    scaleBg.setAttribute('x', scaleX - 5);
-    scaleBg.setAttribute('y', scaleY - 25);
-    scaleBg.setAttribute('width', scaleLength + 40);
-    scaleBg.setAttribute('height', 35);
-    scaleBg.setAttribute('fill', 'rgba(42, 42, 42, 0.9)');
-    scaleBg.setAttribute('stroke', 'var(--primary-color)');
-    scaleBg.setAttribute('stroke-width', '1');
-    scaleBg.setAttribute('rx', '5');
-    svg.appendChild(scaleBg);
-    
-    // Scale line with end markers
-    const scaleLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    scaleLine.setAttribute('x1', scaleX + 15);
-    scaleLine.setAttribute('y1', scaleY);
-    scaleLine.setAttribute('x2', scaleX + 15 + scaleLength);
-    scaleLine.setAttribute('y2', scaleY);
-    scaleLine.setAttribute('stroke', '#ffffff');
-    scaleLine.setAttribute('stroke-width', '3');
-    svg.appendChild(scaleLine);
-    
-    // Left end marker
-    const leftMarker = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    leftMarker.setAttribute('x1', scaleX + 15);
-    leftMarker.setAttribute('y1', scaleY - 5);
-    leftMarker.setAttribute('x2', scaleX + 15);
-    leftMarker.setAttribute('y2', scaleY + 5);
-    leftMarker.setAttribute('stroke', '#ffffff');
-    leftMarker.setAttribute('stroke-width', '3');
-    svg.appendChild(leftMarker);
-    
-    // Right end marker
-    const rightMarker = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    rightMarker.setAttribute('x1', scaleX + 15 + scaleLength);
-    rightMarker.setAttribute('y1', scaleY - 5);
-    rightMarker.setAttribute('x2', scaleX + 15 + scaleLength);
-    rightMarker.setAttribute('y2', scaleY + 5);
-    rightMarker.setAttribute('stroke', '#ffffff');
-    rightMarker.setAttribute('stroke-width', '3');
-    svg.appendChild(rightMarker);
-    
-    // Scale text
-    const scaleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    scaleText.setAttribute('x', scaleX + 15 + scaleLength / 2);
-    scaleText.setAttribute('y', scaleY - 8);
-    scaleText.setAttribute('text-anchor', 'middle');
-    scaleText.setAttribute('font-size', '12');
-    scaleText.setAttribute('font-weight', 'bold');
-    scaleText.setAttribute('fill', 'var(--primary-color)');
-    scaleText.textContent = '1.0m';
-    svg.appendChild(scaleText);
-    
-    // Scale label
-    const scaleLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    scaleLabel.setAttribute('x', scaleX + 15 + scaleLength / 2);
-    scaleLabel.setAttribute('y', scaleY + 15);
-    scaleLabel.setAttribute('text-anchor', 'middle');
-    scaleLabel.setAttribute('font-size', '9');
-    scaleLabel.setAttribute('fill', '#b0b0b0');
-    scaleLabel.textContent = 'Scale';
-    svg.appendChild(scaleLabel);
 }
 
 /**
@@ -703,17 +627,22 @@ function updateSimulationUI() {
     const statusEl = document.getElementById('simulation-status');
     const buttonEl = document.getElementById('btn-toggle-simulation');
     const badgeEl = document.getElementById('data-source-badge');
+    const nodeCountControl = document.getElementById('node-count-control');
     
     if (AppState.simulationEnabled) {
         statusEl.textContent = 'Simulation: ON';
         buttonEl.className = 'btn btn-primary btn-sm';
         badgeEl.textContent = 'Data: Simulation';
         badgeEl.className = 'status-badge warning';
+        // Show node count control only in simulation mode
+        if (nodeCountControl) nodeCountControl.style.display = 'flex';
     } else {
         statusEl.textContent = 'Simulation: OFF';
         buttonEl.className = 'btn btn-secondary btn-sm';
         badgeEl.textContent = 'Data: Real';
         badgeEl.className = 'status-badge connected';
+        // Hide node count control when using real data
+        if (nodeCountControl) nodeCountControl.style.display = 'none';
     }
 }
 

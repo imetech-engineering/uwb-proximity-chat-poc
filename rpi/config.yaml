@@ -167,7 +167,7 @@ advanced:
   stats_window_s: 60            # Statistics calculation window
   
   # Simulation settings
-  simulate_units: true          # Generate fake unit data for testing
+  simulate_units: false         # Generate fake unit data for testing (default: off)
   simulation_unit_count: 5      # Test with 5 units (A, B, C, D, E)
   simulation_update_rate_hz: 3  # Faster updates for better visualization
 

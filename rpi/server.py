@@ -947,12 +947,25 @@ if static_dir.exists():
 # =============================================================================
 
 if __name__ == "__main__":
-    # Run server
+    import sys
+    
+    # Print startup banner
+    print("\n" + "="*60)
+    print("  UWB Proximity Chat - Hub Server")
+    print("  IMeTech Engineering")
+    print("="*60)
+    print(f"Starting server on port {CONFIG['network']['rest_port']}...")
+    print(f"UDP listener on port {CONFIG['network']['udp_listen_port']}")
+    print(f"Simulation mode: {'ON' if CONFIG['advanced']['simulate_units'] else 'OFF'}")
+    print("="*60 + "\n")
+    
+    # Run server with minimal logging
     uvicorn.run(
         "server:app",
         host=CONFIG['network']['rest_host'],
         port=CONFIG['network']['rest_port'],
-        log_level=CONFIG['persistence']['log_level'].lower(),
-        reload=True  # Auto-reload on code changes (disable in production)
+        log_level="warning",  # Less verbose logging
+        reload=False,  # Disable reload for cleaner output
+        access_log=False  # Disable access logs for cleaner output
     )
 

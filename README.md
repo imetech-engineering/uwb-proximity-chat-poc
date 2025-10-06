@@ -95,9 +95,18 @@ Perfect for:
    ```
 
 3. **Note your Raspberry Pi's IP address:**
+   
+   On Raspberry Pi (Linux):
    ```bash
    hostname -I
    ```
+   
+   On Windows (if testing locally):
+   ```powershell
+   ipconfig
+   ```
+   Look for "IPv4 Address" under your active network adapter.
+   
    Write this down - you'll need it for the ESP32 configuration!
 
 4. **Start the server:**
@@ -107,9 +116,14 @@ Perfect for:
 
    You should see:
    ```
-   INFO: Starting UDP listener on 0.0.0.0:9999
-   INFO: Starting WebSocket server...
-   INFO: Server ready at http://0.0.0.0:8000
+   ============================================================
+     UWB Proximity Chat - Hub Server
+     IMeTech Engineering
+   ============================================================
+   Starting server on port 8000...
+   UDP listener on port 9999
+   Simulation mode: OFF
+   ============================================================
    ```
 
 ### Step 2: Configure the ESP32 Units
@@ -298,8 +312,8 @@ The system automatically logs all measurements (when not in simulation mode).
 2. File downloads with format:
    ```csv
    timestamp,node,peer,distance_m,quality,volume
-   2024-10-06T14:23:45,A,B,2.45,0.95,0.85
-   2024-10-06T14:23:45,A,C,5.32,0.88,0.45
+   2025-10-06T14:23:45,A,B,2.45,0.95,0.85
+   2025-10-06T14:23:45,A,C,5.32,0.88,0.45
    ```
 
 **CSV Fields:**
@@ -404,4 +418,4 @@ For SLVN Events proximity-based audio project.
 ---
 
 **Version:** 1.0  
-**Last Updated:** October 2024
+**Last Updated:** October 2025

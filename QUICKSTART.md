@@ -36,10 +36,19 @@ cd uwb-system/rpi
 python3 -m pip install -r requirements.txt
 ```
 
-**D. Find your Pi's IP address**
+**D. Find your Raspberry Pi's IP address**
+
+On Raspberry Pi (Linux):
 ```bash
 hostname -I
 ```
+
+On Windows (if testing locally):
+```powershell
+ipconfig
+```
+Look for "IPv4 Address" under your active network adapter.
+
 **Write this down!** Example: `192.168.1.100`
 
 **E. Start the server**
@@ -49,8 +58,14 @@ python3 server.py
 
 You should see:
 ```
-INFO: Starting UDP listener on 0.0.0.0:9999
-INFO: Server ready at http://0.0.0.0:8000
+============================================================
+  UWB Proximity Chat - Hub Server
+  IMeTech Engineering
+============================================================
+Starting server on port 8000...
+UDP listener on port 9999
+Simulation mode: OFF
+============================================================
 ```
 
 Raspberry Pi is ready.
@@ -169,11 +184,18 @@ Press `Ctrl+C` in the terminal
 http://<raspberry-pi-ip>:8000
 ```
 
-### Finding Raspberry Pi IP
+### Finding IP Address
 
+On Raspberry Pi (Linux):
 ```bash
 hostname -I
 ```
+
+On Windows:
+```powershell
+ipconfig
+```
+Look for "IPv4 Address"
 
 ### Checking ESP32 Logs
 
@@ -346,5 +368,3 @@ IMeTech Engineering
 https://imetech.nl/
 
 ---
-
-Ready to go? Start with Step 1 above.
