@@ -160,8 +160,8 @@ If you haven't set up your Raspberry Pi yet:
 2. **Download the software:**
    ```bash
    cd ~/
-   git clone <repository-url>
-   cd Software
+   git clone https://github.com/imetech-engineering/uwb-proximity-chat-poc
+   cd uwb-proximity-chat-poc
    cd rpi
    ```
 
@@ -234,12 +234,12 @@ You need to flash firmware onto each ESP32 board. You'll do this once per board,
 
 1. **Open the firmware:**
    - In Arduino IDE, go to `File` → `Open`
-   - Navigate to `Software/esp32/unit_firmware/`
+   - Navigate to `uwb-proximity-chat-poc/esp32/unit_firmware/`
    - Open `main.cpp`
 
 2. **Edit the configuration:**
    - Open the file `config.h` (should appear as a tab in Arduino IDE)
-   - Change these three settings:
+   - Change these four settings:
 
    ```cpp
    // UNIQUE FOR EACH UNIT! 
