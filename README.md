@@ -51,27 +51,27 @@ Perfect for:
 ```
 ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
 │  Person A   │         │  Person B   │         │  Person C   │
-│  (ESP32-A)  │◄────────┤  (ESP32-B)  ├────────►│  (ESP32-C)  │
+│  (ESP32-A)  │<------->│  (ESP32-B)  │<------->│  (ESP32-C)  │
 └──────┬──────┘   UWB   └──────┬──────┘   UWB   └──────┬──────┘
        │                       │                        │
        │         Wi-Fi         │          Wi-Fi         │
        └───────────┬───────────┴────────────┬───────────┘
                    │                        │
-                   ▼                        ▼
+                   v                        v
               ┌─────────────────────────────────┐
               │    Raspberry Pi Hub Server      │
-              │  ● Collects distance data       │
-              │  ● Calculates audio volumes     │
-              │  ● Hosts web dashboard          │
+              │  - Collects distance data       │
+              │  - Calculates audio volumes     │
+              │  - Hosts web dashboard          │
               └─────────────┬───────────────────┘
                             │
                             │ Browser
-                            ▼
+                            v
                    ┌─────────────────┐
                    │  Web Dashboard  │
-                   │  ● Network graph │
-                   │  ● Live distances│
-                   │  ● CSV export    │
+                   │  - Network graph │
+                   │  - Live distances│
+                   │  - CSV export    │
                    └─────────────────┘
 ```
 
@@ -81,77 +81,202 @@ Perfect for:
 
 ### Step 1: Set Up the Raspberry Pi
 
-1. **Install the software:**
+#### 1.1 Initial Raspberry Pi Setup
+
+If you haven't set up your Raspberry Pi yet:
+
+1. **Install Raspberry Pi OS:**
+   - Download and install Raspberry Pi Imager from https://www.raspberrypi.com/software/
+   - Insert your SD card (16GB or larger) into your computer
+   - Open Raspberry Pi Imager
+
+2. **Configure the OS (important!):**
+   - Click "Choose OS" → Select "Raspberry Pi OS (32-bit)" or "(64-bit)"
+   - Click "Choose Storage" → Select your SD card
+   - **Before clicking "Write"**, click the **gear icon** in the bottom right corner
+   
+   **In the Advanced Options menu:**
+   - **Enable SSH**
+     - Check "Enable SSH"
+     - Select "Use password authentication"
+   
+   - **Set username and password**
+     - Username: `pi` (or your choice)
+     - Password: Set a secure password (you'll need this!)
+   
+   - **Configure Wi-Fi**
+     - Check "Configure wireless LAN"
+     - SSID: Your Wi-Fi network name
+     - Password: Your Wi-Fi password
+     - **IMPORTANT:** Wi-Fi country: Select your country
+     - **IMPORTANT:** Make sure it's a 2.4GHz network (ESP32 requirement)
+   
+   - **Set locale settings**
+     - Set your timezone and keyboard layout
+   
+   - Click "Save" to return to the main screen
+   - Click "Write" to flash the SD card
+
+3. **Boot the Raspberry Pi:**
+   - Remove the SD card from your computer
+   - Insert it into your Raspberry Pi
+   - Connect power to the Pi
+   - Wait 1-2 minutes for first boot and Wi-Fi connection
+
+4. **Connect to your Raspberry Pi via SSH:**
+   
+   **From Windows:**
+   - Open Command Prompt or PowerShell
+   - Type: `ssh pi@raspberrypi.local`
+   - If that doesn't work, you'll need to find the Pi's IP address in your router's admin panel
+   - Then use: `ssh pi@<ip-address>` (e.g., `ssh pi@192.168.1.50`)
+   - Enter the password you set in step 2
+   
+   **From Mac/Linux:**
+   - Open Terminal
+   - Type: `ssh pi@raspberrypi.local`
+   - If that doesn't work, use: `ssh pi@<ip-address>`
+   - Enter the password you set in step 2
+   
+   **Alternative - Direct Connection:**
+   - If SSH doesn't work, connect a monitor, keyboard, and mouse to the Pi
+   - Login with your username and password
+   - Open Terminal on the Pi desktop
+
+5. **Update the system:**
    ```bash
-   # On your Raspberry Pi
-   cd ~/
-   git clone <repository-url>
-   cd Software/rpi
+   sudo apt update
+   sudo apt upgrade -y
+   ```
+   This may take several minutes.
+
+#### 1.2 Install the Hub Software
+
+1. **Install required system packages:**
+   ```bash
+   sudo apt install -y python3 python3-pip git
    ```
 
-2. **Install dependencies:**
+2. **Download the software:**
+   ```bash
+   cd ~/
+   git clone <repository-url>
+   cd Software
+   cd rpi
+   ```
+
+3. **Install Python dependencies:**
    ```bash
    python3 -m pip install -r requirements.txt
    ```
 
-3. **Note your Raspberry Pi's IP address:**
-   
-   On Raspberry Pi (Linux):
+#### 1.3 Find Your Raspberry Pi's IP Address
+
+You'll need this IP address to configure the ESP32 units.
+
    ```bash
-   hostname -I
-   ```
-   
-   On Windows (if testing locally):
-   ```powershell
-   ipconfig
-   ```
-   Look for "IPv4 Address" under your active network adapter.
-   
-   Write this down - you'll need it for the ESP32 configuration!
+hostname -I
+```
 
-4. **Start the server:**
+Example output: `192.168.1.100 fe80::...`  
+The first address (e.g., `192.168.1.100`) is what you need.
+
+**Write this IP address down!**
+
+#### 1.4 Start the Server
+
    ```bash
-   python3 server.py
-   ```
+python3 server.py
+```
 
-   You should see:
-   ```
-   ============================================================
-     UWB Proximity Chat - Hub Server
-     IMeTech Engineering
-   ============================================================
-   Starting server on port 8000...
-   UDP listener on port 9999
-   Simulation mode: OFF
-   ============================================================
-   ```
+You should see:
+```
+============================================================
+  UWB Proximity Chat - Hub Server
+  IMeTech Engineering
+============================================================
+Starting server on port 8000...
+UDP listener on port 9999
+Simulation mode: OFF
+============================================================
+```
 
-### Step 2: Configure the ESP32 Units
+Leave this running. The server is now waiting for ESP32 units to connect.
 
-1. **Open the firmware configuration file:**
-   ```
-   esp32/unit_firmware/config.h
-   ```
+### Step 2: Program the ESP32 Units
 
-2. **Edit these settings for EACH unit:**
+You need to flash firmware onto each ESP32 board. You'll do this once per board, giving each a unique ID.
+
+#### 2.1 Prepare Your Computer
+
+**Install Arduino IDE:**
+1. Download from https://www.arduino.cc/en/software
+2. Install and open Arduino IDE
+
+**Add ESP32 Board Support:**
+1. Go to `File` → `Preferences`
+2. In "Additional Board Manager URLs", add:
+   ```
+   https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+   ```
+3. Go to `Tools` → `Board` → `Boards Manager`
+4. Search for "esp32" and install "esp32 by Espressif Systems"
+
+**Install Required Libraries:**
+1. Go to `Tools` → `Manage Libraries`
+2. Search and install:
+   - `DW3000` by Makerfabs
+   - `ArduinoJson` by Benoit Blanchon
+
+#### 2.2 Configure and Flash Each ESP32
+
+**For each ESP32 board, repeat these steps:**
+
+1. **Open the firmware:**
+   - In Arduino IDE, go to `File` → `Open`
+   - Navigate to `Software/esp32/unit_firmware/`
+   - Open `main.cpp`
+
+2. **Edit the configuration:**
+   - Open the file `config.h` (should appear as a tab in Arduino IDE)
+   - Change these three settings:
 
    ```cpp
-   // UNIQUE FOR EACH UNIT! Change this for every ESP32
-   #define UNIT_ID 'A'  // First unit = 'A', second = 'B', third = 'C', etc.
+   // UNIQUE FOR EACH UNIT! 
+   // First board = 'A', second = 'B', third = 'C', etc.
+   #define UNIT_ID 'A'
    
-   // YOUR WI-FI NETWORK
-   #define WIFI_SSID "YourNetworkName"     // Your Wi-Fi name
-   #define WIFI_PASS "YourPassword"        // Your Wi-Fi password
+   // YOUR WI-FI NETWORK (same 2.4GHz network as Raspberry Pi)
+   #define WIFI_SSID "YourNetworkName"
+   #define WIFI_PASS "YourPassword"
    
    // YOUR RASPBERRY PI IP ADDRESS (from Step 1.3)
-   #define HUB_UDP_IP "192.168.1.100"      // Replace with your Pi's IP
+   #define HUB_UDP_IP "192.168.1.100"  // Replace with your actual IP!
    ```
 
-3. **Flash each ESP32:**
-   - Connect ESP32 to computer via USB
-   - Open in Arduino IDE or PlatformIO
-   - Upload the firmware
-   - Repeat for each unit with different `UNIT_ID`
+3. **Select the board:**
+   - Connect the Makerfabs ESP32 UWB board to your computer via USB
+   - Go to `Tools` → `Board` → `ESP32 Arduino`
+   - Select `ESP32 Dev Module`
+   - Go to `Tools` → `Port` and select the COM port that appeared when you plugged in the board
+
+4. **Upload the firmware:**
+   - Click the **Upload** button (right arrow icon) in Arduino IDE
+   - Wait for "Done uploading" message
+   - The board will restart automatically
+
+5. **Verify it works:**
+   - Open `Tools` → `Serial Monitor`
+   - Set baud rate to `115200`
+   - You should see messages about connecting to Wi-Fi and starting UWB
+
+6. **Repeat for next board:**
+   - Disconnect this ESP32
+   - Connect the next ESP32
+   - **IMPORTANT:** Change `UNIT_ID` to 'B', then 'C', etc.
+   - Upload again
+
+**You need at least 3 units for the system to work properly.**
 
 ### Step 3: Test the System
 
