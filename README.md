@@ -227,8 +227,6 @@ You need to flash firmware onto each ESP32 board. You'll do this once per board,
 2. Search and install:
    - `ArduinoJson` by Benoit Blanchon
 
-**Note:** This firmware uses a custom DW3000 driver implementation, so you don't need to install a separate DW3000 library.
-
 #### 2.2 Configure and Flash Each ESP32
 
 **For each ESP32 board, repeat these steps:**
@@ -257,7 +255,7 @@ You need to flash firmware onto each ESP32 board. You'll do this once per board,
    ```
 
 3. **Select the board:**
-   - Connect the Makerfabs ESP32 UWB board to your computer via USB
+   - Connect the Makerfabs ESP32 UWB board to your computer via USB (ensure the ESP32 is not connected to any other power source)
    - Go to `Tools` → `Board` → `ESP32 Arduino`
    - Select `ESP32 Dev Module`
    - Go to `Tools` → `Port` and select the COM port that appeared when you plugged in the board
